@@ -1,0 +1,245 @@
+{
+  "character": "Xiaoyan",
+  "actions": [
+    {
+      "action": "attack",
+      "frames": 6,
+      "grid": [
+        2,
+        3
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.03419057871227851,
+      "anchorYStd": 0.003799313919667995,
+      "outputSubjectHeightMean": 172.5
+    },
+    {
+      "action": "bow",
+      "frames": 4,
+      "grid": [
+        2,
+        2
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.019498934311866632,
+      "anchorYStd": 0.0092451721666071,
+      "outputSubjectHeightMean": 167.75
+    },
+    {
+      "action": "cast",
+      "frames": 6,
+      "grid": [
+        2,
+        3
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.03514412728505974,
+      "anchorYStd": 0.005698970879501992,
+      "outputSubjectHeightMean": 187.66666666666666
+    },
+    {
+      "action": "clap",
+      "frames": 6,
+      "grid": [
+        2,
+        3
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.011029270492523457,
+      "anchorYStd": 0.0016200328986661174,
+      "outputSubjectHeightMean": 183.33333333333334
+    },
+    {
+      "action": "dance",
+      "frames": 8,
+      "grid": [
+        2,
+        4
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.04177818168546137,
+      "anchorYStd": 0.018018868283437784,
+      "outputSubjectHeightMean": 174.375
+    },
+    {
+      "action": "hurt",
+      "frames": 4,
+      "grid": [
+        2,
+        2
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.018567186928920235,
+      "anchorYStd": 0.025066430774124224,
+      "outputSubjectHeightMean": 177.0
+    },
+    {
+      "action": "idle",
+      "frames": 4,
+      "grid": [
+        2,
+        2
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.006342305300608243,
+      "anchorYStd": 0.01495436880579453,
+      "outputSubjectHeightMean": 190.5
+    },
+    {
+      "action": "jump",
+      "frames": 6,
+      "grid": [
+        2,
+        3
+      ],
+      "cellSize": 256,
+      "align": "center",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.03127982413354045,
+      "anchorYStd": 0.06468582788030335,
+      "outputSubjectHeightMean": 156.5
+    },
+    {
+      "action": "run",
+      "frames": 8,
+      "grid": [
+        2,
+        4
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.026354503506845352,
+      "anchorYStd": 0.019256122559965567,
+      "outputSubjectHeightMean": 172.75
+    },
+    {
+      "action": "sad",
+      "frames": 4,
+      "grid": [
+        2,
+        2
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.0031496783132205297,
+      "anchorYStd": 0.02391758040305801,
+      "outputSubjectHeightMean": 189.5
+    },
+    {
+      "action": "sit",
+      "frames": 4,
+      "grid": [
+        2,
+        2
+      ],
+      "cellSize": 256,
+      "align": "center",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.04065235880023598,
+      "anchorYStd": 0.03186985403285997,
+      "outputSubjectHeightMean": 171.0
+    },
+    {
+      "action": "sleep",
+      "frames": 4,
+      "grid": [
+        2,
+        2
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.007680650516978575,
+      "anchorYStd": 0.026258232146668378,
+      "outputSubjectHeightMean": 179.75
+    },
+    {
+      "action": "surprise",
+      "frames": 4,
+      "grid": [
+        2,
+        2
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.03260322482666786,
+      "anchorYStd": 0.02429985291840277,
+      "outputSubjectHeightMean": 186.0
+    },
+    {
+      "action": "turn",
+      "frames": 6,
+      "grid": [
+        2,
+        3
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.021228777066425862,
+      "anchorYStd": 0.0038706018223279488,
+      "outputSubjectHeightMean": 175.5
+    },
+    {
+      "action": "wave",
+      "frames": 6,
+      "grid": [
+        2,
+        3
+      ],
+      "cellSize": 256,
+      "align": "feet",
+      "strictQc": true,
+      "edgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleCv": 0.009047864593025319,
+      "anchorYStd": 0.0011455362483921106,
+      "outputSubjectHeightMean": 188.16666666666666
+    }
+  ]
+}

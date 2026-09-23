@@ -1,0 +1,39 @@
+{
+  "name": "xiaoyan-desktop-pet",
+  "version": "0.1.0",
+  "description": "月華の詩桌面宠物：透明置顶、可拖拽、可缩放的跨平台 Electron 小人。",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron .",
+    "web": "python3 -m http.server 4173 -d .",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:win:x64": "electron-builder --win --x64",
+    "dist:mac:arm64": "electron-builder --mac --arm64",
+    "dist:mac:x64": "electron-builder --mac --x64",
+    "dist": "electron-builder --mac --win"
+  },
+  "devDependencies": {
+    "electron": "^39.1.2",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.xiaoyan.desktop-pet",
+    "productName": "Xiaoyan Desktop Pet",
+    "asar": true,
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    }
+  }
+}

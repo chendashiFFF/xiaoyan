@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Xiaoyan Desktop Pet</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="pet-root" aria-label="Xiaoyan 桌面宠物">
+      <section id="pet-stage" class="pet-stage" role="application" aria-label="Xiaoyan">
+        <div id="pet-shadow" class="pet-shadow" aria-hidden="true"></div>
+        <div id="sprite-stack" class="sprite-stack">
+          <img id="sprite-a" class="sprite" draggable="false" alt="" />
+          <img id="sprite-b" class="sprite" draggable="false" alt="" />
+        </div>
+        <div id="motion-particles" aria-hidden="true"></div>
+      </section>
+      <div id="hover-panel" class="hover-panel" aria-label="动作控制">
+        <button data-action="idle">待机</button>
+        <button data-action="wave">挥手</button>
+        <button data-action="cast">施法</button>
+        <button data-action="attack">攻击</button>
+        <button data-action="run">跑动</button>
+        <button data-action="jump">跳跃</button>
+        <button data-action="bow">鞠躬</button>
+        <button data-action="dance">舞蹈</button>
+        <button data-action="sit">坐下</button>
+        <button data-action="sleep">困倦</button>
+        <button data-action="turn">转身</button>
+        <button data-action="clap">鼓掌</button>
+        <button data-action="surprise">惊讶</button>
+        <button data-action="sad">难过</button>
+        <span class="divider"></span>
+        <button data-zoom="down" aria-label="缩小">−</button>
+        <span id="zoom-label">100%</span>
+        <button data-zoom="up" aria-label="放大">+</button>
+      </div>
+      <div id="status-label" aria-live="polite">待机</div>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,185 @@
+:root {
+  --stage-width: 320px;
+  --stage-height: 380px;
+  --pet-scale: 1;
+  --panel-bg: rgba(30, 25, 39, 0.88);
+  --panel-border: rgba(255, 232, 203, 0.32);
+  --gold: #f4d8a6;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #pet-root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+}
+
+.pet-stage {
+  position: absolute;
+  inset: 0;
+  width: var(--stage-width);
+  height: var(--stage-height);
+  cursor: grab;
+  -webkit-app-region: no-drag;
+}
+
+.pet-stage:active { cursor: grabbing; }
+
+.sprite-stack {
+  position: absolute;
+  left: 32px;
+  top: 12px;
+  width: 256px;
+  height: 256px;
+  transform-origin: center bottom;
+  transform: scale(var(--pet-scale));
+  transition: transform 130ms ease-out;
+  will-change: transform;
+}
+
+.sprite {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 256px;
+  height: 256px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  opacity: 0;
+  transition: none;
+  pointer-events: none;
+}
+
+.sprite.visible { opacity: 1; }
+
+.pet-shadow {
+  position: absolute;
+  left: 89px;
+  top: 279px;
+  width: 142px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(30, 18, 28, 0.18);
+  filter: blur(5px);
+  transform: scale(var(--pet-scale));
+  transform-origin: center;
+  transition: transform 130ms ease-out, opacity 160ms ease;
+}
+
+.pet-shadow.airborne { opacity: 0.06; transform: scale(calc(var(--pet-scale) * 0.62)); }
+
+.hover-panel {
+  position: absolute;
+  left: 26px;
+  top: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  max-width: 286px;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel-bg);
+  box-shadow: 0 6px 24px rgba(0,0,0,.22);
+  opacity: 0;
+  transform: translateY(-7px) scale(.97);
+  transition: opacity 140ms ease, transform 140ms ease;
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+  white-space: nowrap;
+}
+
+#pet-root:hover .hover-panel,
+.hover-panel:focus-within { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+.hover-panel button {
+  border: 0;
+  border-radius: 8px;
+  padding: 4px 7px;
+  color: #fff5e8;
+  background: rgba(255,255,255,.10);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.hover-panel button:hover { background: rgba(255, 221, 175, .28); color: white; }
+.hover-panel .divider { width: 1px; height: 18px; background: rgba(255,255,255,.20); margin: 0 2px; }
+#zoom-label { min-width: 38px; text-align: center; color: var(--gold); font-size: 11px; }
+
+#status-label {
+  position: absolute;
+  right: 26px;
+  bottom: 28px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  color: rgba(255, 245, 231, .88);
+  background: rgba(35, 27, 43, .54);
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+
+#pet-root:hover #status-label { opacity: 1; }
+
+body.browser-mode {
+  min-width: 100vw;
+  min-height: 100vh;
+  background: radial-gradient(circle at 50% 42%, #594564 0%, #2d2436 48%, #19151f 100%);
+}
+
+body.browser-mode #pet-root {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 660px;
+  height: var(--stage-height);
+}
+
+body.browser-mode .hover-panel {
+  left: 334px;
+  top: 22px;
+  max-width: 304px;
+}
+
+body.browser-mode #status-label {
+  right: 20px;
+  bottom: 20px;
+}
+
+body.electron-mode .sprite-stack {
+  top: 108px;
+}
+
+body.electron-mode .pet-shadow {
+  top: 356px;
+}
+
+.particle {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f1cf9b;
+  pointer-events: none;
+  animation: sparkle 480ms ease-out forwards;
+}
+
+@keyframes sparkle {
+  from { opacity: .9; transform: translate(0, 0) scale(1); }
+  to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sprite, .hover-panel, .pet-shadow { transition-duration: 0ms; }
+}
