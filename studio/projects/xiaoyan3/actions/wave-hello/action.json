@@ -1,0 +1,67 @@
+{
+  "id": "wave-hello",
+  "label": "挥手问好",
+  "cellSize": 512,
+  "grounded": true,
+  "playback": "pingpong",
+  "frames": [
+    {
+      "id": "f001",
+      "duration": 150,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f002",
+      "duration": 150,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f003",
+      "duration": 150,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f004",
+      "duration": 150,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    }
+  ],
+  "nextSeq": 5,
+  "updatedAt": 1790152976
+}

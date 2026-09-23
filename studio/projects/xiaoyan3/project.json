@@ -1,0 +1,15 @@
+{
+  "id": "xiaoyan3",
+  "name": "xiaoyan3",
+  "references": [
+    "references/_20260923163254_237_2.png",
+    "references/_20260923163307_238_2.png"
+  ],
+  "actionOrder": [
+    "wave-hello",
+    "shiver-cold",
+    "heart-gift"
+  ],
+  "identityReference": "references/_20260923163254_237_2.png",
+  "designReference": "references/_20260923163307_238_2.png"
+}
