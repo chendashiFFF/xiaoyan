@@ -1,0 +1,12 @@
+{
+  "id": "xiaoyan2",
+  "name": "xiaoyan2",
+  "references": [
+    "references/f755a9c3d7ada6b82cfa72bf46bda498.png",
+    "references/master-ai.png",
+    "references/turnaround-ai.png"
+  ],
+  "actionOrder": [],
+  "identityReference": "references/master-ai.png",
+  "designReference": "references/turnaround-ai.png"
+}

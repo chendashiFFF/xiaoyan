@@ -1,0 +1,68 @@
+{
+  "id": "sit",
+  "label": "坐下",
+  "cellSize": 256,
+  "grounded": true,
+  "playback": "loop",
+  "frames": [
+    {
+      "id": "f001",
+      "duration": 167,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f002",
+      "duration": 167,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f003",
+      "duration": 167,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f004",
+      "duration": 167,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    }
+  ],
+  "nextSeq": 5,
+  "source": "assets/actions/sit",
+  "updatedAt": 1790131359
+}
