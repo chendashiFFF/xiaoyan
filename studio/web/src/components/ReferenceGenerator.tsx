@@ -133,7 +133,7 @@ export function ReferenceGenerator({ project, projects, fileUrl, initialSources,
       <div className="row">
         <button className="primary" disabled={busy || !selected.length} onClick={() => void submit('master')}>生成主参考图</button>
         <button disabled={busy || !project.identityReference} onClick={() => void submit('turnaround')} title="用当前的主参考图画正面、侧面、背面">生成三视图设定图</button>
-        <span className="muted hint">每张约 1–2 分钟，消耗 Codex 额度</span>
+        <span className="muted hint">每张约 1–2 分钟，消耗生图额度</span>
       </div>
       {error && <p className="error">{error}</p>}
 

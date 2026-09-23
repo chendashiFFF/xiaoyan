@@ -7,9 +7,10 @@ interface Props {
   onSwitch: (id: string) => void;
   onCreate: () => void;
   onReferences: () => void;
+  onDelete: () => void;
 }
 
-export function CharacterMenu({ projects, current, onSwitch, onCreate, onReferences }: Props) {
+export function CharacterMenu({ projects, current, onSwitch, onCreate, onReferences, onDelete }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const active = projects.find((p) => p.id === current);
@@ -44,6 +45,14 @@ export function CharacterMenu({ projects, current, onSwitch, onCreate, onReferen
             </button>
           ))}
           <button className="new" onClick={() => { setOpen(false); onCreate(); }}>＋ 新人物</button>
+          <button
+            className="delete"
+            disabled={projects.length <= 1}
+            title={projects.length <= 1 ? '至少要保留一个人物' : '删除当前人物（移到回收目录，可以找回）'}
+            onClick={() => { setOpen(false); onDelete(); }}
+          >
+            删除「{active?.name ?? current}」…
+          </button>
         </div>
       )}
     </div>

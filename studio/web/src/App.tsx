@@ -10,12 +10,13 @@ import { ExportDialog } from './components/ExportDialog';
 import { Inspector, type AlignAxes } from './components/Inspector';
 import { KeyposePanel } from './components/KeyposePanel';
 import { NewActionDialog } from './components/NewActionDialog';
+import { GeneratorSettingsDialog } from './components/GeneratorSettingsDialog';
 import { Timeline } from './components/Timeline';
 import { Viewer, type ViewSettings } from './components/Viewer';
 import { historyReducer, initialHistory } from './history';
 import { loadImage, useImages } from './images';
 import { alignedOffset, computeQc } from './qc';
-import type { Action, CodexStatus, ExportOptions, Frame, FrameJobKind, Job, KeyposeRequest, NewActionRequest, Playback, Project, ProjectSummary, Rect, ReferenceRole } from './types';
+import type { Action, ExportOptions, GeneratorSettings, Frame, FrameJobKind, Job, KeyposeRequest, NewActionRequest, Playback, Project, ProjectSummary, Rect, ReferenceRole } from './types';
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
 
@@ -86,7 +87,8 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [codexStatus, setCodexStatus] = useState<CodexStatus | null>(null);
+  const [generator, setGenerator] = useState<GeneratorSettings | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [aiMode, setAiMode] = useState<FrameJobKind>('redraw');
   const [keepTotal, setKeepTotal] = useState(true);
@@ -140,7 +142,7 @@ export default function App() {
         setLoadError(`加载失败：${message(error)}。后端是否已启动（npm run studio）？`);
       }
     })();
-    api.codexStatus().then(setCodexStatus, () => setCodexStatus({ available: false, version: null, model: '?' }));
+    api.getSettings().then(setGenerator, () => setGenerator(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -663,6 +665,21 @@ export default function App() {
     void refreshProjects();
   }, [refreshProjects]);
 
+  const deleteCharacter = useCallback(async () => {
+    if (!project) return;
+    const count = project.actions.length;
+    if (!window.confirm(`删除人物「${project.name}」和它的 ${count} 个动作？\n整个文件夹会移到 studio/projects/.trash/，需要时可以从那里找回。`)) return;
+    await flushSave();
+    try {
+      const { trashedTo, next } = await api.deleteProject(project.id);
+      await openProject(next);
+      await refreshProjects();
+      setNotice(`已删除「${project.name}」，文件移到了 ${trashedTo}`);
+    } catch (error) {
+      setNotice(`删除失败：${message(error)}`);
+    }
+  }, [project, flushSave, openProject, refreshProjects]);
+
   const uploadReference = useCallback(async (file: File, role: ReferenceRole) => {
     if (!project) return null;
     const result = await api.uploadReference(project.id, file, role);
@@ -782,7 +799,7 @@ export default function App() {
   const submitAllInbetweens = useCallback(async (candidates: number) => {
     if (!doc || blocked() || !inbetweenGaps.length) return;
     const total = inbetweenGaps.length * candidates;
-    if (!window.confirm(`给 ${inbetweenGaps.length} 个间隔各补一帧，每处 ${candidates} 张候选，一共生成 ${total} 张图，会消耗 ${total} 次 Codex 额度。继续吗？`)) return;
+    if (!window.confirm(`给 ${inbetweenGaps.length} 个间隔各补一帧，每处 ${candidates} 张候选，一共生成 ${total} 张图，会消耗 ${total} 次生图额度。继续吗？`)) return;
     await flushSave();
     const created: Job[] = [];
     for (const gap of inbetweenGaps) {
@@ -803,8 +820,9 @@ export default function App() {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
-      if (exportOpen || newActionOpen || refsOpen || newCharacterOpen) {
+      if (exportOpen || newActionOpen || refsOpen || newCharacterOpen || settingsOpen) {
         if (event.key === 'Escape') {
+          setSettingsOpen(false);
           setExportOpen(false);
           setNewActionOpen(false);
           setRefsOpen(false);
@@ -897,11 +915,21 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [doc, current, exportOpen, newActionOpen, refsOpen, newCharacterOpen, step, updateFrame, deleteFrame, duplicateFrame, exitPreview, preview, jobs, previewCandidate, acceptCandidate]);
+  }, [doc, current, exportOpen, newActionOpen, refsOpen, newCharacterOpen, settingsOpen, step, updateFrame, deleteFrame, duplicateFrame, exitPreview, preview, jobs, previewCandidate, acceptCandidate]);
 
   // ---- render --------------------------------------------------------------
   if (loadError) return <div className="empty-state"><p>{loadError}</p></div>;
   if (!project) return <div className="empty-state"><p>加载中…</p></div>;
+
+  const generatorLabel = !generator ? '…'
+    : generator.provider === 'api' ? `API · ${generator.api.model}` : `Codex · ${generator.codex.model}`;
+  const generatorProblem = !generator ? null
+    : generator.provider === 'api'
+      ? (!generator.api.base || !generator.api.hasKey ? '图片 API 还没配置好：点右上角「生图设置」填写接口地址和 API Key' : null)
+      : (!generator.codex.available ? '没有找到 codex 命令：安装并登录 Codex CLI，或者在「生图设置」里改用图片 API' : null);
+  const settingsButton = (
+    <button className="ghost" onClick={() => { setPlaying(false); setSettingsOpen(true); }} title="选择用 Codex 还是图片 API 生成图片">⚙ 生图设置</button>
+  );
 
   const characterMenu = (
     <CharacterMenu
@@ -910,6 +938,7 @@ export default function App() {
       onSwitch={(id) => { void switchProject(id); }}
       onCreate={() => { setPlaying(false); setNewCharacterOpen(true); }}
       onReferences={() => { setPlaying(false); setRefsOpen(true); }}
+      onDelete={() => { setPlaying(false); void deleteCharacter(); }}
     />
   );
   const dialogs = (
@@ -918,6 +947,13 @@ export default function App() {
       {exportOpen && doc && <ExportDialog actionLabel={doc.label} onClose={() => setExportOpen(false)} onExport={runExport} />}
       {newActionOpen && (
         <NewActionDialog existingIds={Object.keys(actions)} onClose={() => setNewActionOpen(false)} onCreate={createNewAction} />
+      )}
+      {settingsOpen && generator && (
+        <GeneratorSettingsDialog
+          settings={generator}
+          onClose={() => setSettingsOpen(false)}
+          onSaved={(saved) => { setGenerator(saved); setSettingsOpen(false); setNotice(saved.provider === 'api' ? `已改用图片 API（${saved.api.model}）` : '已改用本机 Codex'); }}
+        />
       )}
       {newCharacterOpen && (
         <NewCharacterDialog existingIds={projects.map((p) => p.id)} projects={projects} onClose={() => setNewCharacterOpen(false)} onCreate={createCharacter} />
@@ -944,6 +980,7 @@ export default function App() {
       <div className="app">
         <header className="topbar">
           <div className="brand"><strong>Sprite Studio</strong>{characterMenu}</div>
+          <div className="doc-opts">{settingsButton}</div>
         </header>
         <div className="workspace no-inspector">
           <ActionList
@@ -1019,6 +1056,7 @@ export default function App() {
         <div className="doc-opts">
           <button onClick={() => dispatch({ type: 'undo' })} disabled={!history.past.length} title="撤销（⌘Z）">↶</button>
           <button onClick={() => dispatch({ type: 'redo' })} disabled={!history.future.length} title="重做（⇧⌘Z）">↷</button>
+          {settingsButton}
           <span className={`save-state ${saveState}`}>{SAVE_LABELS[saveState]}</span>
           <button className="primary" onClick={() => { void flushSave(); setPlaying(false); setExportOpen(true); }}>导出</button>
         </div>
@@ -1123,7 +1161,8 @@ export default function App() {
             <AiPanel
               key={selectedFrame.id}
               frame={selectedFrame}
-              codex={codexStatus}
+              generatorLabel={generatorLabel}
+              generatorProblem={generatorProblem}
               jobs={jobs.filter((job) => job.frame === selectedFrame.id)}
               mode={aiMode}
               onMode={(mode) => { setAiMode(mode); if (mode !== 'repair') setSelecting(false); }}

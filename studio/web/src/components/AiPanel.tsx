@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { CodexStatus, Frame, FrameJobKind, Job, Rect } from '../types';
+import type { Frame, FrameJobKind, Job, Rect } from '../types';
 
 export interface PreviewRef {
   jobId: string;
@@ -8,7 +8,10 @@ export interface PreviewRef {
 
 interface Props {
   frame: Frame;
-  codex: CodexStatus | null;
+  /** e.g. "API · gpt-image-2.5-flare" */
+  generatorLabel: string;
+  /** Why generation cannot run right now, if it cannot. */
+  generatorProblem: string | null;
   jobs: Job[];
   mode: FrameJobKind;
   onMode: (mode: FrameJobKind) => void;
@@ -53,7 +56,7 @@ const clock = (seconds: number) => {
 };
 
 export function AiPanel(props: Props) {
-  const { frame, codex, jobs, mode, rect, selecting, preview, nextLabel } = props;
+  const { frame, jobs, mode, rect, selecting, preview, nextLabel, generatorLabel, generatorProblem } = props;
   const [instruction, setInstruction] = useState('');
   const [count, setCount] = useState(2);
   const [busy, setBusy] = useState(false);
@@ -61,7 +64,7 @@ export function AiPanel(props: Props) {
   const now = useNow(jobs.some(active));
   const visible = jobs.filter((job) => showReviewed || !job.reviewed || active(job));
   const hidden = jobs.length - visible.length;
-  const unavailable = codex !== null && !codex.available;
+  const unavailable = Boolean(generatorProblem);
 
   const submit = async () => {
     setBusy(true);
@@ -74,8 +77,8 @@ export function AiPanel(props: Props) {
 
   return (
     <section className="ai-panel">
-      <h3>AI 重画 <small className="muted">Codex · {codex?.model ?? '…'}</small></h3>
-      {unavailable && <p className="error">没有找到 codex 命令。安装并登录 Codex CLI 后重启工作台。</p>}
+      <h3>AI 重画 <small className="muted">{generatorLabel}</small></h3>
+      {generatorProblem && <p className="error">{generatorProblem}</p>}
       <div className="segmented">
         <button className={mode === 'redraw' ? 'active' : ''} onClick={() => props.onMode('redraw')}>整帧重画</button>
         <button className={mode === 'repair' ? 'active' : ''} onClick={() => props.onMode('repair')}>局部修补</button>
@@ -136,7 +139,7 @@ export function AiPanel(props: Props) {
           {props.gapCount ? `所有间隔各补一帧（${props.gapCount} 处 × ${count} 张）` : '所有间隔都已经在补了'}
         </button>
       )}
-      <p className="muted hint">每张约 1 分钟，会消耗你的 Codex 额度。生成时可以继续编辑其他帧。</p>
+      <p className="muted hint">每张约 1 分钟，会消耗你的 生图额度。生成时可以继续编辑其他帧。</p>
 
       <div className="jobs">
         {visible.map((job) => {

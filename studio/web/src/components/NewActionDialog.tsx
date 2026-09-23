@@ -120,7 +120,7 @@ export function NewActionDialog({ existingIds, onClose, onCreate }: Props) {
           </label>
           {error && <p className="error">{error}</p>}
           <div className="row end">
-            <span className="muted hint">每组约 1–2 分钟，消耗 Codex 额度</span>
+            <span className="muted hint">每组约 1–2 分钟，消耗生图额度</span>
             <button onClick={onClose}>取消</button>
             <button className="primary" disabled={!ready || busy} onClick={submit}>{busy ? '创建中…' : '创建并生成关键姿势'}</button>
           </div>

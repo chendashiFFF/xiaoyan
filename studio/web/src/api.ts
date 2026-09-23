@@ -1,4 +1,4 @@
-import type { AcceptResult, Action, CodexStatus, ExportOptions, ExportResult, Frame, FrameJobKind, Job, KeyposeRequest, NewActionRequest, Project, ProjectSummary, Rect, ReferenceJobRequest, ReferenceRole } from './types';
+import type { AcceptResult, Action, CodexStatus, ExportOptions, ExportResult, Frame, FrameJobKind, Job, KeyposeRequest, NewActionRequest, Project, ProjectSummary, Rect, ReferenceJobRequest, ReferenceRole, GeneratorSettings, GeneratorSettingsPatch } from './types';
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -24,6 +24,7 @@ const json = (method: string, body: unknown): RequestInit => ({
 export const api = {
   listProjects: () => request<ProjectSummary[]>('/api/projects'),
   createProject: (body: { id: string; name: string }) => request<Project>('/api/projects', json('POST', body)),
+  deleteProject: (pid: string) => request<{ trashedTo: string; next: string }>(`/api/projects/${pid}`, { method: 'DELETE' }),
   updateProject: (pid: string, patch: { name?: string; identityReference?: string | null; designReference?: string | null }) =>
     request<Project>(`/api/projects/${pid}`, json('PATCH', patch)),
   uploadReference: (pid: string, file: File, role: ReferenceRole | null) =>
@@ -49,6 +50,10 @@ export const api = {
   exportAction: (pid: string, aid: string, options: ExportOptions) =>
     request<ExportResult>(`/api/projects/${pid}/actions/${aid}/export`, json('POST', options)),
   codexStatus: () => request<CodexStatus>('/api/codex'),
+  getSettings: () => request<GeneratorSettings>('/api/settings'),
+  updateSettings: (patch: GeneratorSettingsPatch) => request<GeneratorSettings>('/api/settings', json('PUT', patch)),
+  testSettings: (api: GeneratorSettingsPatch['api']) =>
+    request<{ ok: boolean; error?: string; models: string[]; hasModel?: boolean }>('/api/settings/test', json('POST', { api })),
   createReferenceJob: (pid: string, body: ReferenceJobRequest) => request<Job>(`/api/projects/${pid}/reference-jobs`, json('POST', body)),
   listReferenceJobs: (pid: string) => request<Job[]>(`/api/projects/${pid}/reference-jobs`),
   createAction: (pid: string, body: NewActionRequest) => request<Action>(`/api/projects/${pid}/actions`, json('POST', body)),

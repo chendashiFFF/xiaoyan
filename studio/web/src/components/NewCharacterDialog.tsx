@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ProjectSummary } from '../types';
 
@@ -21,6 +21,66 @@ interface Props {
 }
 
 const SLUG = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const MAX_SOURCES = 6;
+const sameFile = (a: File, b: File) => a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
+
+/** Growable list of reference images: add in several goes (picker, drag-and-drop or paste), remove any one. */
+function ImageList({ files, onChange }: { files: File[]; onChange: (files: File[]) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const urls = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
+  useEffect(() => () => urls.forEach((url) => URL.revokeObjectURL(url)), [urls]);
+
+  const add = (incoming: File[]) => {
+    const images = incoming.filter((f) => f.type.startsWith('image/'));
+    const fresh = images.filter((f) => !files.some((existing) => sameFile(existing, f)));
+    const room = MAX_SOURCES - files.length;
+    const skipped = fresh.length - Math.max(0, room);
+    setNote(skipped > 0 ? `最多 ${MAX_SOURCES} 张，有 ${skipped} 张没加进来` : images.length < incoming.length ? '只能添加图片文件' : null);
+    if (room > 0 && fresh.length) onChange([...files, ...fresh.slice(0, room)]);
+  };
+
+  return (
+    <div
+      className={`image-list ${dragging ? 'dragging' : ''}`}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => { e.preventDefault(); setDragging(false); add([...e.dataTransfer.files]); }}
+      onPaste={(e) => {
+        const pasted = [...e.clipboardData.files];
+        if (pasted.length) { e.preventDefault(); add(pasted); }
+      }}
+      tabIndex={0}
+    >
+      {files.map((file, i) => (
+        <div key={`${file.name}-${file.lastModified}-${i}`} className="image-item checker" title={file.name}>
+          <img src={urls[i]} alt="" />
+          <button className="remove" onClick={() => onChange(files.filter((_, j) => j !== i))} title="移除这张" aria-label="移除">✕</button>
+          <span className="name">{file.name}</span>
+        </div>
+      ))}
+      {files.length < MAX_SOURCES && (
+        <button className="image-item add" onClick={() => inputRef.current?.click()}>
+          <span>＋</span>
+          <small>添加图片</small>
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/webp,image/jpeg"
+        multiple
+        hidden
+        onChange={(e) => { add([...(e.target.files ?? [])]); e.target.value = ''; }}
+      />
+      <p className="muted hint list-hint">
+        {files.length}/{MAX_SOURCES} 张 · 可以分几次添加，也可以直接把图片拖进来或 ⌘V 粘贴
+        {note && <span className="warn-text"> · {note}</span>}
+      </p>
+    </div>
+  );
+}
 
 function usePreview(file: File | null): string | null {
   const [url, setUrl] = useState<string | null>(null);
@@ -105,11 +165,10 @@ export function NewCharacterDialog({ existingIds, projects, onClose, onCreate }:
             </div>
           ) : (
             <>
-              <label className="field">
+              <div className="field">
                 <span>参考图（1–6 张，不同角度、姿势、画风都行）</span>
-                <input type="file" accept="image/png,image/webp,image/jpeg" multiple onChange={(e) => setSources([...(e.target.files ?? [])].slice(0, 6))} />
-                {sources.length > 0 && <small className="muted">已选 {sources.length} 张：{sources.map((f) => f.name).join('、')}</small>}
-              </label>
+                <ImageList files={sources} onChange={setSources} />
+              </div>
               <label className="field">
                 <span>补充说明（可选）</span>
                 <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="比如：发饰在左边、眼睛是金色" />
@@ -122,7 +181,7 @@ export function NewCharacterDialog({ existingIds, projects, onClose, onCreate }:
                   {projects.filter((p) => p.thumb).map((p) => <option key={p.id} value={`from:${p.id}`}>和「{p.name}」同一画风</option>)}
                 </select>
               </label>
-              <p className="muted hint">创建后 AI 会画 2 张正面全身主参考图（约 1–2 分钟，消耗 Codex 额度），在"角色参考"里挑一张，还可以接着生成三视图。</p>
+              <p className="muted hint">创建后 AI 会画 2 张正面全身主参考图（约 1–2 分钟，消耗生图额度），在"角色参考"里挑一张，还可以接着生成三视图。</p>
             </>
           )}
           {error && <p className="error">{error}</p>}

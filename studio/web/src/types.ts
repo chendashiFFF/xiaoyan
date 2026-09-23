@@ -151,6 +151,19 @@ export interface KeyposeRequest {
   duration: number;
 }
 
+export type Provider = 'codex' | 'api';
+
+export interface GeneratorSettings {
+  provider: Provider;
+  api: { base: string; model: string; quality: string; timeout: number; hasKey: boolean; keyHint: string };
+  codex: CodexStatus;
+}
+
+export interface GeneratorSettingsPatch {
+  provider?: Provider;
+  api?: { base?: string; key?: string; clearKey?: boolean; model?: string; quality?: string; timeout?: number };
+}
+
 export interface CodexStatus {
   available: boolean;
   version: string | null;
