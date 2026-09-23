@@ -61,6 +61,8 @@ def parse_hex(value: str) -> tuple[int, int, int]:
 def render_sequence(pid: str, aid: str, opts: ExportOptions) -> tuple[list[Image.Image], list[int], dict]:
     """Composite every frame with its offset, apply pingpong, trim, and scale."""
     action = get_action(pid, aid)
+    if not action["frames"]:
+        raise StoreError("这个动作还没有帧")
     cell = int(action["cellSize"])
     frames: list[Image.Image] = []
     durations: list[int] = []

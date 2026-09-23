@@ -177,9 +177,47 @@ def move_to(image: Image.Image, target_x: float, target_bottom: int) -> Image.Im
     return shifted(image, round(target_x - mass_x(mask)), target_bottom - bottom(mask))
 
 
+def despill_edges(image: Image.Image) -> Image.Image:
+    """Remove the magenta cast that the model leaves on anti-aliased edges (it drew on a magenta canvas)."""
+    data = np.asarray(image).astype(np.float32)
+    alpha = data[..., 3] / 255.0
+    r, g, b = data[..., 0], data[..., 1], data[..., 2]
+    spill = np.clip(np.minimum(r, b) - g, 0, None) * (1.0 - alpha)
+    edge = (alpha > 0) & (alpha < 1)
+    data[..., 0] = np.where(edge, r - spill, r)
+    data[..., 2] = np.where(edge, b - spill, b)
+    return Image.fromarray(np.clip(data, 0, 255).round().astype(np.uint8), "RGBA")
+
+
+def match_colors(candidate: Image.Image, references: list[Image.Image]) -> Image.Image:
+    """Per-channel histogram matching of the body colours onto the neighbouring frames.
+
+    The model re-renders the character slightly brighter and pinker than the source frames;
+    mapping each channel's distribution back keeps an animation from flickering in colour.
+    """
+    cand = np.asarray(candidate).copy()
+    body = cand[..., 3] >= 128
+    ref_pixels = [np.asarray(r)[..., :3][np.asarray(r)[..., 3] >= 128] for r in references]
+    ref_pixels = [p for p in ref_pixels if len(p)]
+    if not body.any() or not ref_pixels:
+        return candidate
+    ref = np.concatenate(ref_pixels)
+    levels = np.arange(256)
+    visible = cand[..., 3] > 0
+    for c in range(3):
+        src_cdf = np.cumsum(np.bincount(cand[..., c][body], minlength=256)).astype(np.float64)
+        ref_cdf = np.cumsum(np.bincount(ref[:, c], minlength=256)).astype(np.float64)
+        src_cdf /= src_cdf[-1]
+        ref_cdf /= ref_cdf[-1]
+        mapping = np.interp(src_cdf, ref_cdf, levels).round().astype(np.uint8)
+        channel = cand[..., c]
+        channel[visible] = mapping[channel[visible]]
+    return Image.fromarray(cand, "RGBA")
+
+
 def normalize_candidate(raw: Image.Image, cell: int, original: Image.Image, kind: str, rect: Rect | None = None) -> Image.Image:
     """Turn a generated image into a cell-sized frame lined up with `original` (both in displayed orientation)."""
-    candidate = match_scale(prepare(raw, cell), original)
+    candidate = match_colors(despill_edges(match_scale(prepare(raw, cell), original)), [original])
 
     if kind == "repair" and rect:
         x0, y0, x1, y1 = rect
@@ -192,3 +230,67 @@ def normalize_candidate(raw: Image.Image, cell: int, original: Image.Image, kind
     if not orig_mask.any():
         return candidate
     return move_to(candidate, mass_x(orig_mask), bottom(orig_mask))
+
+
+def normalize_inbetween(raw: Image.Image, cell: int, before: Image.Image, after: Image.Image) -> Image.Image:
+    """An in-between sits halfway between its neighbours (both given in the first frame's coordinates)."""
+    candidate = match_colors(despill_edges(match_scale(prepare(raw, cell), before)), [before, after])
+    a, b = solid_mask(before), solid_mask(after)
+    if not a.any() or not b.any():
+        return candidate
+    return move_to(candidate, (mass_x(a) + mass_x(b)) / 2, round((bottom(a) + bottom(b)) / 2))
+
+
+# ---- key-pose sheets ------------------------------------------------------------
+
+SHEET_CELL = 512
+BODY_HEIGHT = 0.70  # share of the cell the standing character occupies, same as the imported actions
+BASELINE = 0.945  # feet line as a share of the cell height
+SOLID_SHARE = 0.30  # solid area / body height^2, measured on the imported standing frames
+
+
+def anchor_sheet(identity: Image.Image, rows: int, cols: int) -> Image.Image:
+    """Grid template: the reference character at the intended size and feet line in every cell."""
+    body = extract_alpha(identity)
+    bbox = body.getbbox()
+    if bbox:
+        body = body.crop(bbox)
+    height = round(SHEET_CELL * BODY_HEIGHT)
+    body = resize_rgba(body, (max(1, round(body.width * height / body.height)), height))
+    sheet = Image.new("RGBA", (cols * SHEET_CELL, rows * SHEET_CELL), (255, 0, 255, 255))
+    for r in range(rows):
+        for c in range(cols):
+            x = c * SHEET_CELL + (SHEET_CELL - body.width) // 2
+            y = r * SHEET_CELL + round(SHEET_CELL * BASELINE) - body.height
+            sheet.alpha_composite(body, (x, y))
+    return sheet.convert("RGB")
+
+
+def split_sheet(raw: Image.Image, rows: int, cols: int, cell: int, grounded: bool) -> list[Image.Image]:
+    """Cut a generated grid into frames with one shared scale, centred, feet on the baseline when grounded."""
+    sheet = extract_alpha(raw)
+    cw, ch = sheet.width / cols, sheet.height / rows
+    crops = [sheet.crop((round(c * cw), round(r * ch), round((c + 1) * cw), round((r + 1) * ch)))
+             for r in range(rows) for c in range(cols)]
+    areas = [int(solid_mask(crop).sum()) for crop in crops]
+    if not any(areas):
+        raise ValueError("生成的图片里没有找到角色")
+    # One scale for the whole sheet: the median pose should cover as much as the template body would.
+    target_area = (cell * BODY_HEIGHT) ** 2 * SOLID_SHARE
+    median_area = float(np.median([a for a in areas if a]))
+    scale = math.sqrt(target_area / median_area)
+    frames = []
+    baseline = round(cell * BASELINE) - 1
+    for crop in crops:
+        size = (max(1, round(crop.width * scale)), max(1, round(crop.height * scale)))
+        body = drop_faint(resize_rgba(crop, size))
+        canvas = Image.new("RGBA", (cell, cell), (0, 0, 0, 0))
+        canvas.paste(body, ((cell - body.width) // 2, (cell - body.height) // 2))
+        if not solid_mask(canvas).any():
+            frames.append(canvas)
+            continue
+        if grounded:
+            frames.append(move_to(canvas, cell / 2, baseline))
+        else:
+            frames.append(move_to(canvas, cell / 2, bottom(solid_mask(canvas))))
+    return frames

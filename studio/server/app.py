@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -30,6 +32,26 @@ def list_projects() -> list[dict]:
     return store.list_projects()
 
 
+@app.post("/api/projects")
+async def create_project(request: Request) -> dict:
+    return store.create_project(await request.json())
+
+
+@app.patch("/api/projects/{pid}")
+async def update_project(pid: str, request: Request) -> dict:
+    return store.update_project(pid, await request.json())
+
+
+@app.post("/api/projects/{pid}/references")
+async def upload_reference(pid: str, request: Request, role: Optional[str] = None, name: str = "reference") -> dict:
+    data = await request.body()
+    if not data:
+        raise HTTPException(400, "empty upload")
+    if len(data) > MAX_UPLOAD:
+        raise HTTPException(413, "image too large")
+    return store.add_reference(pid, data, role, name)
+
+
 @app.get("/api/projects/{pid}")
 def get_project(pid: str) -> dict:
     return store.get_project(pid)
@@ -40,9 +62,19 @@ def get_action(pid: str, aid: str) -> dict:
     return store.get_action(pid, aid)
 
 
+@app.post("/api/projects/{pid}/actions")
+async def create_action(pid: str, request: Request) -> dict:
+    return store.create_action(pid, await request.json())
+
+
 @app.put("/api/projects/{pid}/actions/{aid}")
 async def save_action(pid: str, aid: str, request: Request) -> dict:
     return store.save_action(pid, aid, await request.json())
+
+
+@app.delete("/api/projects/{pid}/actions/{aid}")
+def delete_action(pid: str, aid: str) -> dict:
+    return store.delete_action(pid, aid)
 
 
 @app.post("/api/projects/{pid}/actions/{aid}/frames/{fid}/duplicate")
@@ -74,6 +106,21 @@ def codex_status() -> dict:
 @app.post("/api/projects/{pid}/actions/{aid}/frames/{fid}/jobs")
 async def create_job(pid: str, aid: str, fid: str, request: Request) -> dict:
     return jobs.create_job(pid, aid, fid, await request.json())
+
+
+@app.post("/api/projects/{pid}/actions/{aid}/jobs")
+async def create_action_job(pid: str, aid: str, request: Request) -> dict:
+    return jobs.create_action_job(pid, aid, await request.json())
+
+
+@app.post("/api/projects/{pid}/reference-jobs")
+async def create_reference_job(pid: str, request: Request) -> dict:
+    return jobs.create_reference_job(pid, await request.json())
+
+
+@app.get("/api/projects/{pid}/reference-jobs")
+def list_reference_jobs(pid: str) -> list[dict]:
+    return jobs.list_jobs(pid, kinds=jobs.REFERENCE_KINDS)
 
 
 @app.get("/api/projects/{pid}/actions/{aid}/jobs")

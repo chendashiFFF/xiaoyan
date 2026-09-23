@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -23,7 +24,8 @@ from typing import Any
 from PIL import Image
 
 STUDIO_DIR = Path(__file__).resolve().parents[1]
-PROJECTS_DIR = STUDIO_DIR / "projects"
+# STUDIO_PROJECTS_DIR lets tests run against a throwaway copy instead of the real projects.
+PROJECTS_DIR = Path(os.environ.get("STUDIO_PROJECTS_DIR", STUDIO_DIR / "projects"))
 SLUG = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
 
@@ -63,11 +65,89 @@ def write_json(path: Path, data: Any) -> None:
 def list_projects() -> list[dict]:
     if not PROJECTS_DIR.exists():
         return []
-    return [
-        {"id": p.name, "name": read_json(p / "project.json").get("name", p.name)}
-        for p in sorted(PROJECTS_DIR.iterdir())
-        if (p / "project.json").exists()
-    ]
+    projects = []
+    for root in sorted(PROJECTS_DIR.iterdir()):
+        if not (root / "project.json").exists():
+            continue
+        project = read_json(root / "project.json")
+        identity = project.get("identityReference")
+        projects.append({
+            "id": root.name,
+            "name": project.get("name", root.name),
+            "thumb": f"/files/{root.name}/{identity}" if identity else None,
+            "actionCount": len(list((root / "actions").glob("*/action.json"))),
+        })
+    return projects
+
+
+REFERENCE_ROLES = {"identity": "identityReference", "design": "designReference"}
+
+
+def create_project(body: dict) -> dict:
+    pid = check_slug(str(body.get("id", "")).strip().lower(), "character id")
+    root = project_dir(pid)
+    if (root / "project.json").exists():
+        raise StoreError(f"人物 {pid} 已经存在")
+    name = str(body.get("name") or pid).strip()[:60]
+    (root / "actions").mkdir(parents=True, exist_ok=True)
+    (root / "references").mkdir(parents=True, exist_ok=True)
+    project = {"id": pid, "name": name, "references": [], "actionOrder": [],
+               "identityReference": None, "designReference": None}
+    write_json(root / "project.json", project)
+    return get_project(pid)
+
+
+def update_project(pid: str, body: dict) -> dict:
+    project_file = project_dir(pid) / "project.json"
+    project = read_json(project_file)
+    if "name" in body:
+        project["name"] = str(body["name"]).strip()[:60] or project.get("name", pid)
+    for role, key in REFERENCE_ROLES.items():
+        if key in body:
+            value = body[key]
+            if value is not None and value not in project.get("references", []):
+                raise StoreError(f"{value} 不是这个人物的参考图")
+            project[key] = value
+    write_json(project_file, project)
+    return get_project(pid)
+
+
+def add_reference(pid: str, data: bytes, role: str | None, filename: str) -> dict:
+    """Store an uploaded reference image; the identity image gets its background keyed out."""
+    from . import process  # process has no store imports; kept local to avoid loading numpy for every store user
+    if role is not None and role not in REFERENCE_ROLES:
+        raise StoreError(f"unknown reference role {role!r}")
+    try:
+        image = Image.open(io.BytesIO(data))
+        image.load()
+    except Exception as exc:  # Pillow raises a zoo of exception types for bad input
+        raise StoreError(f"not a readable image: {exc}") from exc
+    warning = None
+    if role == "identity":
+        image = process.despill_edges(process.extract_alpha(image))
+        if image.getextrema()[3][0] == 255:
+            warning = "这张图没有透明背景，也不是纯品红底，AI 会把背景也当成人物的一部分参考。最好换一张透明背景的正面全身图。"
+        bbox = image.getbbox()
+        if bbox:
+            pad = round(max(image.size) * 0.04)
+            image = image.crop((max(0, bbox[0] - pad), max(0, bbox[1] - pad),
+                                min(image.width, bbox[2] + pad), min(image.height, bbox[3] + pad)))
+    stem = re.sub(r"[^a-z0-9_-]+", "-", Path(filename or "reference").stem.lower()).strip("-") or "reference"
+    folder = project_dir(pid) / "references"
+    folder.mkdir(parents=True, exist_ok=True)
+    name, serial = f"{stem}.png", 1
+    while (folder / name).exists():
+        serial += 1
+        name = f"{stem}-{serial}.png"
+    image.save(folder / name)
+    rel = f"references/{name}"
+    project_file = project_dir(pid) / "project.json"
+    project = read_json(project_file)
+    project.setdefault("references", []).append(rel)
+    if role:
+        project[REFERENCE_ROLES[role]] = rel
+    write_json(project_file, project)
+    return {"reference": rel, "warning": warning, "project": get_project(pid)}
 
 
 def get_project(pid: str) -> dict:
@@ -130,8 +210,6 @@ def save_action(pid: str, aid: str, incoming: dict) -> dict:
             "versions": versions,
             "note": str(raw.get("note", ""))[:2000],
         })
-    if not frames:
-        raise StoreError("an action needs at least one frame")
     playback = incoming.get("playback", current.get("playback", "loop"))
     if playback not in ("loop", "pingpong"):
         raise StoreError(f"invalid playback {playback!r}")
@@ -146,6 +224,56 @@ def save_action(pid: str, aid: str, incoming: dict) -> dict:
     }
     write_json(action_dir(pid, aid) / "action.json", saved)
     return saved
+
+
+CELL_SIZES = (256, 512)
+
+
+def create_action(pid: str, body: dict) -> dict:
+    aid = check_slug(str(body.get("id", "")).strip().lower(), "action")
+    target = action_dir(pid, aid)
+    if (target / "action.json").exists():
+        raise StoreError(f"动作 {aid} 已经存在")
+    cell = int(body.get("cellSize", 512))
+    if cell not in CELL_SIZES:
+        raise StoreError(f"cellSize must be one of {CELL_SIZES}")
+    playback = body.get("playback", "loop")
+    if playback not in ("loop", "pingpong"):
+        raise StoreError(f"invalid playback {playback!r}")
+    action = {
+        "id": aid,
+        "label": str(body.get("label") or aid)[:60],
+        "cellSize": cell,
+        "grounded": bool(body.get("grounded", True)),
+        "playback": playback,
+        "frames": [],
+        "nextSeq": 1,
+        "updatedAt": int(time.time()),
+    }
+    write_json(target / "action.json", action)
+    project_file = project_dir(pid) / "project.json"
+    project = read_json(project_file)
+    order = project.setdefault("actionOrder", [])
+    if aid not in order:
+        order.append(aid)
+    write_json(project_file, project)
+    return action
+
+
+def delete_action(pid: str, aid: str) -> dict:
+    """Move an action into projects/<project>/trash/ instead of deleting it outright."""
+    source = action_dir(pid, aid)
+    if not (source / "action.json").exists():
+        raise FileNotFoundError(aid)
+    trash = project_dir(pid) / "trash"
+    trash.mkdir(parents=True, exist_ok=True)
+    target = trash / f"{aid}-{time.strftime('%Y%m%d-%H%M%S')}"
+    source.rename(target)
+    project_file = project_dir(pid) / "project.json"
+    project = read_json(project_file)
+    project["actionOrder"] = [a for a in project.get("actionOrder", []) if a != aid]
+    write_json(project_file, project)
+    return {"trashedTo": str(target.relative_to(PROJECTS_DIR.parent.parent))}
 
 
 def allocate_frame_id(pid: str, aid: str) -> str:
@@ -169,6 +297,15 @@ def duplicate_frame(pid: str, aid: str, fid: str, version: int) -> dict:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(source.read_bytes())
     return {"id": new_id, "version": 1, "versions": [1]}
+
+
+def add_frame_from_file(pid: str, aid: str, source: Path) -> str:
+    """Create a brand-new frame whose v1 is a copy of `source`."""
+    fid = allocate_frame_id(pid, aid)
+    target = frame_path(pid, aid, fid, 1)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(source.read_bytes())
+    return fid
 
 
 def fit_to_cell(image: Image.Image, cell: int) -> Image.Image:

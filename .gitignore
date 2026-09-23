@@ -12,3 +12,4 @@ studio/.venv/
 __pycache__/
 *.pyc
 studio/projects/*/jobs/
+studio/projects/*/trash/

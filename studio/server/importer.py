@@ -9,7 +9,7 @@ import re
 import shutil
 import time
 
-from .store import PROJECTS_DIR, STUDIO_DIR, action_dir, write_json
+from .store import PROJECTS_DIR, STUDIO_DIR, action_dir, read_json, write_json
 
 REPO_DIR = STUDIO_DIR.parent
 ACTIONS_SRC = REPO_DIR / "assets" / "actions"
@@ -32,6 +32,8 @@ def import_assets(force: bool = False) -> list[str]:
     project_root = PROJECTS_DIR / PROJECT_ID
     refs = project_root / "references"
     refs.mkdir(parents=True, exist_ok=True)
+    previous = read_json(project_root / "project.json") if (project_root / "project.json").exists() else {}
+    extra = [a for a in previous.get("actionOrder", []) if a not in table]
     for ref in sorted(REFERENCES_SRC.glob("*.png")):
         shutil.copyfile(ref, refs / ref.name)
     write_json(project_root / "project.json", {
@@ -39,7 +41,8 @@ def import_assets(force: bool = False) -> list[str]:
         "name": "Xiaoyan",
         "references": [f"references/{p.name}" for p in sorted(refs.glob("*.png"))],
         "identityReference": "references/master.png",
-        "actionOrder": list(table),
+        "designReference": "references/character-design.png",
+        "actionOrder": list(table) + extra,
     })
 
     imported = []
