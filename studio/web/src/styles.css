@@ -351,3 +351,17 @@ button.batch { width: 100%; margin: 2px 0 6px; border-style: dashed; }
 .list-hint { flex-basis: 100%; margin: 0; }
 .character-dropdown .delete { color: var(--danger); font-size: 12px; }
 .character-dropdown .delete:disabled { color: var(--muted); }
+.modal-form .suggest { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; background: rgba(124, 140, 255, .04); }
+.suggest-head { display: flex; align-items: center; justify-content: space-between; }
+.suggest-head h3 { margin: 0 0 6px; font-size: 13px; }
+.suggest input.grow { flex: 1; }
+.thinking { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.suggest-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; max-height: 330px; overflow-y: auto; padding-right: 2px; }
+.suggest-card { display: flex; flex-direction: column; align-items: stretch; gap: 4px; text-align: left; white-space: normal; padding: 8px 10px; }
+.suggest-card strong { display: flex; align-items: baseline; gap: 6px; font-size: 13px; }
+.suggest-card strong small { color: var(--muted); font-weight: 400; font-size: 11px; }
+.suggest-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: rgba(124, 140, 255, .1); }
+.suggest-desc { font-size: 11.5px; line-height: 1.5; color: #c3c7d1; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.suggest-meta { font-size: 11px; color: var(--muted); }
+.modal.narrow { max-height: calc(100vh - 32px); }
+.modal.narrow .modal-form { overflow-y: auto; }

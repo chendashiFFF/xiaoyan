@@ -21,6 +21,7 @@ export function GeneratorSettingsDialog({ settings, onClose, onSaved }: Props) {
   const [base, setBase] = useState(settings.api.base);
   const [key, setKey] = useState('');
   const [model, setModel] = useState(settings.api.model);
+  const [textModel, setTextModel] = useState(settings.api.textModel);
   const [quality, setQuality] = useState(settings.api.quality);
   const [timeout, setTimeoutSeconds] = useState(settings.api.timeout);
   const [models, setModels] = useState<string[]>([]);
@@ -28,7 +29,7 @@ export function GeneratorSettingsDialog({ settings, onClose, onSaved }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const apiPatch = () => ({ base, model, quality, timeout, ...(key ? { key } : {}) });
+  const apiPatch = () => ({ base, model, textModel, quality, timeout, ...(key ? { key } : {}) });
 
   const runTest = async () => {
     setBusy(true);
@@ -37,7 +38,7 @@ export function GeneratorSettingsDialog({ settings, onClose, onSaved }: Props) {
       const result = await api.testSettings(apiPatch());
       setModels(result.models);
       setTest(result.ok
-        ? { ok: true, text: result.hasModel ? `连接成功，模型 ${model} 可用` : `连接成功，但列表里没有 ${model}。可用的图片模型：${result.models.join('、') || '（没有）'}` }
+        ? { ok: true, text: result.hasModel ? `连接成功，模型 ${model} 可用` : `连接成功，但列表里没有 ${model}。可用的图片模型：${result.models.filter((m) => m.includes('image')).join('、') || '（没有）'}` }
         : { ok: false, text: result.error ?? '连接失败' });
     } catch (err) {
       setTest({ ok: false, text: err instanceof Error ? err.message : String(err) });
@@ -111,6 +112,13 @@ export function GeneratorSettingsDialog({ settings, onClose, onSaved }: Props) {
                   </select>
                 </label>
               </div>
+              <label className="field">
+                <span>文字模型（AI 推荐动作、写动作描述时用）</span>
+                <input value={textModel} onChange={(e) => setTextModel(e.target.value)} list="text-models" />
+                <datalist id="text-models">
+                  {[...new Set(['gpt-5.6-luna', ...models.filter((m) => !m.includes('image'))])].map((m) => <option key={m} value={m} />)}
+                </datalist>
+              </label>
               <label className="field">
                 <span>超时（秒）</span>
                 <input type="number" className="num" min={60} max={1800} value={timeout} onChange={(e) => setTimeoutSeconds(Number(e.target.value) || 600)} />

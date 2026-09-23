@@ -143,6 +143,17 @@ export interface NewActionRequest {
   playback: Playback;
 }
 
+export interface ActionSuggestion {
+  id: string;
+  label: string;
+  description: string;
+  keyframes: number;
+  facing: Facing;
+  grounded: boolean;
+  playback: Playback;
+  duration: number;
+}
+
 export interface KeyposeRequest {
   instruction: string;
   keyframes: number;
@@ -155,13 +166,13 @@ export type Provider = 'codex' | 'api';
 
 export interface GeneratorSettings {
   provider: Provider;
-  api: { base: string; model: string; quality: string; timeout: number; hasKey: boolean; keyHint: string };
+  api: { base: string; model: string; textModel: string; quality: string; timeout: number; hasKey: boolean; keyHint: string };
   codex: CodexStatus;
 }
 
 export interface GeneratorSettingsPatch {
   provider?: Provider;
-  api?: { base?: string; key?: string; clearKey?: boolean; model?: string; quality?: string; timeout?: number };
+  api?: { base?: string; key?: string; clearKey?: boolean; model?: string; textModel?: string; quality?: string; timeout?: number };
 }
 
 export interface CodexStatus {

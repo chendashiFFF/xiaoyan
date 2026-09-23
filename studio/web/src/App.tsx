@@ -16,7 +16,7 @@ import { Viewer, type ViewSettings } from './components/Viewer';
 import { historyReducer, initialHistory } from './history';
 import { loadImage, useImages } from './images';
 import { alignedOffset, computeQc } from './qc';
-import type { Action, ExportOptions, GeneratorSettings, Frame, FrameJobKind, Job, KeyposeRequest, NewActionRequest, Playback, Project, ProjectSummary, Rect, ReferenceRole } from './types';
+import type { Action, ActionSuggestion, ExportOptions, GeneratorSettings, Frame, FrameJobKind, Job, KeyposeRequest, NewActionRequest, Playback, Project, ProjectSummary, Rect, ReferenceRole } from './types';
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
 
@@ -98,6 +98,7 @@ export default function App() {
   const [refsOpen, setRefsOpen] = useState(false);
   const [newCharacterOpen, setNewCharacterOpen] = useState(false);
   const [refsSources, setRefsSources] = useState<string[] | undefined>(undefined);
+  const [suggestionCache, setSuggestionCache] = useState<Record<string, ActionSuggestion[]>>({});
   const [repairRect, setRepairRect] = useState<Rect | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -946,7 +947,17 @@ export default function App() {
       {notice && <div className="toast" onClick={() => setNotice(null)}>{notice}</div>}
       {exportOpen && doc && <ExportDialog actionLabel={doc.label} onClose={() => setExportOpen(false)} onExport={runExport} />}
       {newActionOpen && (
-        <NewActionDialog existingIds={Object.keys(actions)} onClose={() => setNewActionOpen(false)} onCreate={createNewAction} />
+        <NewActionDialog
+          existingIds={Object.keys(actions)}
+          onClose={() => setNewActionOpen(false)}
+          onCreate={createNewAction}
+          suggestions={suggestionCache[project.id] ?? null}
+          onSuggest={async (idea) => {
+            const { suggestions } = await api.suggestActions(project.id, { idea, count: 6 });
+            setSuggestionCache((prev) => ({ ...prev, [project.id]: suggestions }));
+            return suggestions;
+          }}
+        />
       )}
       {settingsOpen && generator && (
         <GeneratorSettingsDialog

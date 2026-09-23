@@ -1,4 +1,4 @@
-import type { AcceptResult, Action, CodexStatus, ExportOptions, ExportResult, Frame, FrameJobKind, Job, KeyposeRequest, NewActionRequest, Project, ProjectSummary, Rect, ReferenceJobRequest, ReferenceRole, GeneratorSettings, GeneratorSettingsPatch } from './types';
+import type { AcceptResult, Action, ActionSuggestion, CodexStatus, ExportOptions, ExportResult, Frame, FrameJobKind, Job, KeyposeRequest, NewActionRequest, Project, ProjectSummary, Rect, ReferenceJobRequest, ReferenceRole, GeneratorSettings, GeneratorSettingsPatch } from './types';
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -57,6 +57,8 @@ export const api = {
   createReferenceJob: (pid: string, body: ReferenceJobRequest) => request<Job>(`/api/projects/${pid}/reference-jobs`, json('POST', body)),
   listReferenceJobs: (pid: string) => request<Job[]>(`/api/projects/${pid}/reference-jobs`),
   createAction: (pid: string, body: NewActionRequest) => request<Action>(`/api/projects/${pid}/actions`, json('POST', body)),
+  suggestActions: (pid: string, body: { idea: string; count: number }) =>
+    request<{ suggestions: ActionSuggestion[] }>(`/api/projects/${pid}/action-suggestions`, json('POST', body)),
   deleteAction: (pid: string, aid: string) => request<{ trashedTo: string }>(`/api/projects/${pid}/actions/${aid}`, { method: 'DELETE' }),
   createKeyposes: (pid: string, aid: string, body: KeyposeRequest) =>
     request<Job>(`/api/projects/${pid}/actions/${aid}/jobs`, json('POST', { kind: 'keyposes', ...body })),
