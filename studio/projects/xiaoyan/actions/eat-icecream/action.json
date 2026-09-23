@@ -1,55 +1,13 @@
 {
-  "id": "wave",
-  "label": "挥手",
-  "cellSize": 256,
+  "id": "eat-icecream",
+  "label": "吃冰淇淋",
+  "cellSize": 512,
   "grounded": true,
   "playback": "loop",
   "frames": [
     {
-      "id": "f002",
-      "duration": 125,
-      "offset": [
-        1,
-        -1
-      ],
-      "flipX": false,
-      "version": 1,
-      "versions": [
-        1
-      ],
-      "note": ""
-    },
-    {
-      "id": "f003",
-      "duration": 125,
-      "offset": [
-        0,
-        0
-      ],
-      "flipX": false,
-      "version": 1,
-      "versions": [
-        1
-      ],
-      "note": ""
-    },
-    {
-      "id": "f006",
-      "duration": 125,
-      "offset": [
-        0,
-        0
-      ],
-      "flipX": false,
-      "version": 1,
-      "versions": [
-        1
-      ],
-      "note": ""
-    },
-    {
-      "id": "f004",
-      "duration": 125,
+      "id": "f001",
+      "duration": 75,
       "offset": [
         0,
         0
@@ -63,7 +21,21 @@
     },
     {
       "id": "f005",
-      "duration": 125,
+      "duration": 75,
+      "offset": [
+        0,
+        1
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f002",
+      "duration": 75,
       "offset": [
         0,
         0
@@ -76,8 +48,64 @@
       "note": ""
     },
     {
-      "id": "f001",
-      "duration": 125,
+      "id": "f007",
+      "duration": 75,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f003",
+      "duration": 38,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f008",
+      "duration": 37,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f006",
+      "duration": 75,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f004",
+      "duration": 150,
       "offset": [
         0,
         0
@@ -90,7 +118,6 @@
       "note": ""
     }
   ],
-  "nextSeq": 7,
-  "source": "assets/actions/wave",
-  "updatedAt": 1790133165
+  "nextSeq": 9,
+  "updatedAt": 1790135017
 }

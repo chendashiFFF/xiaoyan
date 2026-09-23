@@ -6,20 +6,6 @@
   "playback": "loop",
   "frames": [
     {
-      "id": "f001",
-      "duration": 111,
-      "offset": [
-        0,
-        0
-      ],
-      "flipX": false,
-      "version": 1,
-      "versions": [
-        1
-      ],
-      "note": ""
-    },
-    {
       "id": "f002",
       "duration": 111,
       "offset": [
@@ -88,9 +74,23 @@
         1
       ],
       "note": ""
+    },
+    {
+      "id": "f001",
+      "duration": 111,
+      "offset": [
+        -7,
+        4
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
     }
   ],
   "nextSeq": 7,
   "source": "assets/actions/jump",
-  "updatedAt": 1790130391
+  "updatedAt": 1790131761
 }

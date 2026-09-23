@@ -22,6 +22,9 @@
     "turn",
     "clap",
     "surprise",
-    "sad"
-  ]
+    "sad",
+    "eat-test",
+    "eat-icecream"
+  ],
+  "designReference": "references/character-design.png"
 }

@@ -6,11 +6,11 @@
   "playback": "loop",
   "frames": [
     {
-      "id": "f001",
+      "id": "f004",
       "duration": 250,
       "offset": [
         0,
-        0
+        1
       ],
       "flipX": false,
       "version": 1,
@@ -24,7 +24,7 @@
       "duration": 250,
       "offset": [
         0,
-        0
+        -2
       ],
       "flipX": false,
       "version": 1,
@@ -38,7 +38,7 @@
       "duration": 250,
       "offset": [
         0,
-        0
+        2
       ],
       "flipX": false,
       "version": 1,
@@ -48,11 +48,11 @@
       "note": ""
     },
     {
-      "id": "f004",
+      "id": "f001",
       "duration": 250,
       "offset": [
-        0,
-        0
+        1,
+        -1
       ],
       "flipX": false,
       "version": 1,
@@ -64,5 +64,5 @@
   ],
   "nextSeq": 5,
   "source": "assets/actions/idle",
-  "updatedAt": 1790130391
+  "updatedAt": 1790132772
 }
