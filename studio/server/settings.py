@@ -21,6 +21,7 @@ DEFAULTS = {
         "base": "",
         "key": "",
         "model": "gpt-image-2.5-flare",
+        "textModel": "gpt-5.6-luna",
         "quality": "auto",
         "timeout": 600,
     },
@@ -55,6 +56,7 @@ def public(settings: dict | None = None) -> dict:
         "api": {
             "base": api["base"],
             "model": api["model"],
+            "textModel": api["textModel"],
             "quality": api["quality"],
             "timeout": api["timeout"],
             "hasKey": bool(api["key"]),
@@ -84,6 +86,8 @@ def update(patch: dict) -> dict:
             api["key"] = ""
         if "model" in api_patch:
             api["model"] = str(api_patch["model"]).strip() or DEFAULTS["api"]["model"]
+        if "textModel" in api_patch:
+            api["textModel"] = str(api_patch["textModel"]).strip() or DEFAULTS["api"]["textModel"]
         if "quality" in api_patch:
             if api_patch["quality"] not in QUALITIES:
                 raise StoreError(f"quality must be one of {QUALITIES}")

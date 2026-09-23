@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import codex, exporter, imageapi, jobs, store
+from . import codex, exporter, imageapi, jobs, store, suggest
 from . import settings as generator_settings
 from .store import STUDIO_DIR, StoreError
 
@@ -128,8 +128,7 @@ async def test_settings(request: Request) -> dict:
         models = imageapi.list_models(api)
     except imageapi.ImageApiError as exc:
         return {"ok": False, "error": str(exc), "models": []}
-    image_models = [m for m in models if "image" in m.lower()]
-    return {"ok": True, "models": image_models or models, "hasModel": api["model"] in models}
+    return {"ok": True, "models": models, "hasModel": api["model"] in models, "hasTextModel": api.get("textModel") in models}
 
 
 @app.post("/api/projects/{pid}/actions/{aid}/frames/{fid}/jobs")
@@ -140,6 +139,11 @@ async def create_job(pid: str, aid: str, fid: str, request: Request) -> dict:
 @app.post("/api/projects/{pid}/actions/{aid}/jobs")
 async def create_action_job(pid: str, aid: str, request: Request) -> dict:
     return jobs.create_action_job(pid, aid, await request.json())
+
+
+@app.post("/api/projects/{pid}/action-suggestions")
+def action_suggestions(pid: str, body: dict) -> dict:
+    return {"suggestions": suggest.suggest_actions(pid, str(body.get("idea", "")), int(body.get("count", 6)))}
 
 
 @app.post("/api/projects/{pid}/reference-jobs")
