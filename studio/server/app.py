@@ -6,7 +6,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import codex, exporter, jobs, store
+from . import codex, exporter, imageapi, jobs, store
+from . import settings as generator_settings
 from .store import STUDIO_DIR, StoreError
 
 WEB_DIST = STUDIO_DIR / "web" / "dist"
@@ -35,6 +36,11 @@ def list_projects() -> list[dict]:
 @app.post("/api/projects")
 async def create_project(request: Request) -> dict:
     return store.create_project(await request.json())
+
+
+@app.delete("/api/projects/{pid}")
+def delete_project(pid: str) -> dict:
+    return store.delete_project(pid)
 
 
 @app.patch("/api/projects/{pid}")
@@ -101,6 +107,29 @@ async def export_action(pid: str, aid: str, request: Request) -> dict:
 @app.get("/api/codex")
 def codex_status() -> dict:
     return {"available": _codex_version is not None, "version": _codex_version, "model": codex.DEFAULT_MODEL}
+
+
+@app.get("/api/settings")
+def get_settings() -> dict:
+    return {**generator_settings.public(), "codex": codex_status()}
+
+
+@app.put("/api/settings")
+async def put_settings(request: Request) -> dict:
+    return {**generator_settings.update(await request.json()), "codex": codex_status()}
+
+
+@app.post("/api/settings/test")
+async def test_settings(request: Request) -> dict:
+    """Checks the endpoint and key by listing models; generates nothing, so it costs nothing."""
+    body = await request.json()
+    api = {**generator_settings.load()["api"], **{k: v for k, v in (body.get("api") or {}).items() if v}}
+    try:
+        models = imageapi.list_models(api)
+    except imageapi.ImageApiError as exc:
+        return {"ok": False, "error": str(exc), "models": []}
+    image_models = [m for m in models if "image" in m.lower()]
+    return {"ok": True, "models": image_models or models, "hasModel": api["model"] in models}
 
 
 @app.post("/api/projects/{pid}/actions/{aid}/frames/{fid}/jobs")

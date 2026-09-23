@@ -18,6 +18,7 @@ Kinds:
 from __future__ import annotations
 
 import os
+import re
 import secrets
 import shutil
 import threading
@@ -27,7 +28,8 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
-from . import codex, process
+from . import codex, imageapi, process
+from . import settings as generator_settings
 from .store import (StoreError, action_dir, add_frame_from_file, check_slug, frame_path, get_action, project_dir,
                     read_json, write_json)
 
@@ -87,11 +89,15 @@ def _project_settings(pid: str) -> dict:
     identity = project.get("identityReference") or next((r for r in refs if r.endswith("master.png")), refs[0] if refs else None)
     design = project.get("designReference")
     settings = project.get("codex", {})
+    generator = generator_settings.load()
+    provider = generator["provider"]
     return {
         "identity": project_dir(pid) / identity if identity else None,
         "design": project_dir(pid) / design if design else None,
         "character": project.get("name", pid),
-        "model": settings.get("model", codex.DEFAULT_MODEL),
+        "provider": provider,
+        "api": generator["api"],
+        "model": generator["api"]["model"] if provider == "api" else settings.get("model", codex.DEFAULT_MODEL),
         "effort": settings.get("effort", codex.DEFAULT_EFFORT),
     }
 
@@ -237,6 +243,7 @@ def create_reference_job(pid: str, body: dict) -> dict:
     job.update({
         "sources": sources,
         "style": style_key if not style_from else f"from:{style_from}",
+        "size": "1536x1024" if kind == "turnaround" else "1024x1024",
         "prompt": build_reference_prompt(kind, settings["character"], instruction, labels, style),
         "inputs": [str(p) for p in inputs],
     })
@@ -263,6 +270,7 @@ def _start(pid: str, job: dict, settings: dict) -> dict:
 def _base_job(jid: str, kind: str, aid: str, cell: int, instruction: str, count: int, settings: dict) -> dict:
     return {
         "id": jid,
+        "provider": settings["provider"],
         "kind": kind,
         "action": aid,
         "frame": None,
@@ -278,8 +286,13 @@ def _base_job(jid: str, kind: str, aid: str, cell: int, instruction: str, count:
 
 
 def _require_codex() -> None:
-    if not codex.codex_binary():
-        raise StoreError("找不到 codex 命令，请先安装并登录 Codex CLI")
+    """Fail early when the configured image generator cannot run."""
+    generator = generator_settings.load()
+    if generator["provider"] == "api":
+        if not generator["api"]["base"] or not generator["api"]["key"]:
+            raise StoreError("图片 API 还没配置：在「生图设置」里填写接口地址和 API Key")
+    elif not codex.codex_binary():
+        raise StoreError("找不到 codex 命令，请先安装并登录 Codex CLI，或者在「生图设置」里改用图片 API")
 
 
 def create_job(pid: str, aid: str, fid: str, body: dict) -> dict:
@@ -369,6 +382,7 @@ def create_job(pid: str, aid: str, fid: str, body: dict) -> dict:
         "flipX": bool(frame.get("flipX")),
         "offset": list(frame["offset"]),
         "rect": rect,
+        "size": "1024x1024",
         "prompt": build_prompt(kind, instruction, settings["character"], labels),
         "inputs": [str(p) for p in inputs],
     })
@@ -413,6 +427,7 @@ def create_action_job(pid: str, aid: str, body: dict) -> dict:
         "facing": facing,
         "grounded": bool(action.get("grounded", True)),
         "duration": max(10, min(10_000, int(body.get("duration", 120)))),
+        "size": "1536x1024" if cols > rows else "1024x1024",
         "prompt": build_prompt(kind, description, settings["character"], labels, extra),
         "inputs": [str(p) for p in inputs],
     })
@@ -468,11 +483,17 @@ def _run_candidate(pid: str, jid: str, n: int, settings: dict) -> None:
     set_candidate(status="running", startedAt=int(time.time()))
     try:
         job = _read(pid, jid)
-        result = codex.generate_image(
-            job["prompt"], [Path(p) for p in job["inputs"]], folder / f"work-{n}", folder / f"cand-{n}.log",
-            cancel, model=settings["model"], effort=settings["effort"])
+        inputs = [Path(p) for p in job["inputs"]]
+        if job.get("provider") == "api":
+            # The Codex-specific tool and reply instructions mean nothing to a plain images endpoint.
+            prompt = re.sub(r"\n{3,}", "\n\n", job["prompt"].replace(TOOL, "").replace(REPLY, "")).strip()
+            output = imageapi.generate_image(prompt, inputs, folder / f"work-{n}", folder / f"cand-{n}.log",
+                                             cancel, settings["api"], job.get("size", "auto"))
+        else:
+            output = codex.generate_image(job["prompt"], inputs, folder / f"work-{n}", folder / f"cand-{n}.log",
+                                          cancel, model=settings["model"], effort=settings["effort"]).images[-1]
         raw_path = folder / f"raw-{n}.png"
-        shutil.copyfile(result.images[-1], raw_path)
+        shutil.copyfile(output, raw_path)
         fields = _finish_candidate(job, folder, n, raw_path)
         set_candidate(status="done", finishedAt=int(time.time()), **fields)
     except codex.Cancelled:

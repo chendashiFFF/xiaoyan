@@ -97,6 +97,24 @@ def create_project(body: dict) -> dict:
     return get_project(pid)
 
 
+def delete_project(pid: str) -> dict:
+    """Move a whole character into projects/.trash/ (hidden from the list, recoverable by hand)."""
+    root = project_dir(pid)
+    if not (root / "project.json").exists():
+        raise FileNotFoundError(pid)
+    others = [p for p in list_projects() if p["id"] != pid]
+    if not others:
+        raise StoreError("至少要保留一个人物")
+    for job_file in (root / "jobs").glob("*/job.json"):
+        if read_json(job_file).get("status") in ("queued", "running"):
+            raise StoreError("这个人物还有生成任务在跑，等它完成或取消后再删")
+    trash = PROJECTS_DIR / ".trash"
+    trash.mkdir(parents=True, exist_ok=True)
+    target = trash / f"{pid}-{time.strftime('%Y%m%d-%H%M%S')}"
+    root.rename(target)
+    return {"trashedTo": str(target), "next": others[0]["id"]}
+
+
 def update_project(pid: str, body: dict) -> dict:
     project_file = project_dir(pid) / "project.json"
     project = read_json(project_file)
