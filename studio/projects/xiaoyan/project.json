@@ -1,0 +1,27 @@
+{
+  "id": "xiaoyan",
+  "name": "Xiaoyan",
+  "references": [
+    "references/character-design.png",
+    "references/master-magenta.png",
+    "references/master.png"
+  ],
+  "identityReference": "references/master.png",
+  "actionOrder": [
+    "idle",
+    "wave",
+    "cast",
+    "attack",
+    "hurt",
+    "run",
+    "jump",
+    "bow",
+    "dance",
+    "sit",
+    "sleep",
+    "turn",
+    "clap",
+    "surprise",
+    "sad"
+  ]
+}

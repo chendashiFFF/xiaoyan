@@ -13,7 +13,11 @@
     "dist:win:x64": "electron-builder --win --x64",
     "dist:mac:arm64": "electron-builder --mac --arm64",
     "dist:mac:x64": "electron-builder --mac --x64",
-    "dist": "electron-builder --mac --win"
+    "dist": "electron-builder --mac --win",
+    "studio:setup": "python3 -m venv studio/.venv && studio/.venv/bin/pip install -r studio/requirements.txt && npm --prefix studio/web install",
+    "studio:import": "studio/.venv/bin/python -m studio.server.importer",
+    "studio": "npm --prefix studio/web run build && studio/.venv/bin/python -m studio.server",
+    "studio:dev": "studio/.venv/bin/python -m studio.server --reload & npm --prefix studio/web run dev"
   },
   "devDependencies": {
     "electron": "^39.1.2",
@@ -30,10 +34,16 @@
     ],
     "mac": {
       "category": "public.app-category.entertainment",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     }
   }
 }

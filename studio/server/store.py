@@ -1,0 +1,203 @@
+"""On-disk project store.
+
+Layout (everything is plain files so it can live in git):
+
+    projects/<project>/project.json
+    projects/<project>/references/*.png
+    projects/<project>/actions/<action>/action.json
+    projects/<project>/actions/<action>/frames/<frame>/v<n>.png
+    projects/<project>/exports/*
+
+Frame images are immutable once written: every edit produces a new version
+file, and action.json only points at which version is current.
+"""
+from __future__ import annotations
+
+import io
+import json
+import re
+import time
+from pathlib import Path
+from typing import Any
+
+from PIL import Image
+
+STUDIO_DIR = Path(__file__).resolve().parents[1]
+PROJECTS_DIR = STUDIO_DIR / "projects"
+SLUG = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+
+
+class StoreError(ValueError):
+    pass
+
+
+def check_slug(value: str, kind: str) -> str:
+    if not SLUG.match(value or ""):
+        raise StoreError(f"invalid {kind}: {value!r}")
+    return value
+
+
+def project_dir(pid: str) -> Path:
+    return PROJECTS_DIR / check_slug(pid, "project")
+
+
+def action_dir(pid: str, aid: str) -> Path:
+    return project_dir(pid) / "actions" / check_slug(aid, "action")
+
+
+def frame_path(pid: str, aid: str, fid: str, version: int) -> Path:
+    return action_dir(pid, aid) / "frames" / check_slug(fid, "frame") / f"v{int(version)}.png"
+
+
+def read_json(path: Path) -> Any:
+    return json.loads(path.read_text("utf-8"))
+
+
+def write_json(path: Path, data: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    tmp.replace(path)
+
+
+def list_projects() -> list[dict]:
+    if not PROJECTS_DIR.exists():
+        return []
+    return [
+        {"id": p.name, "name": read_json(p / "project.json").get("name", p.name)}
+        for p in sorted(PROJECTS_DIR.iterdir())
+        if (p / "project.json").exists()
+    ]
+
+
+def get_project(pid: str) -> dict:
+    root = project_dir(pid)
+    if not (root / "project.json").exists():
+        raise FileNotFoundError(pid)
+    project = read_json(root / "project.json")
+    order = project.get("actionOrder", [])
+    actions = []
+    for path in sorted((root / "actions").glob("*/action.json")):
+        action = read_json(path)
+        first = action["frames"][0] if action["frames"] else None
+        actions.append({
+            "id": action["id"],
+            "label": action.get("label", action["id"]),
+            "cellSize": action["cellSize"],
+            "frameCount": len(action["frames"]),
+            "duration": sum(f["duration"] for f in action["frames"]),
+            "thumb": frame_url(pid, action["id"], first["id"], first["version"]) if first else None,
+        })
+    actions.sort(key=lambda a: (order.index(a["id"]) if a["id"] in order else len(order), a["id"]))
+    return {**project, "actions": actions}
+
+
+def frame_url(pid: str, aid: str, fid: str, version: int) -> str:
+    return f"/files/{pid}/actions/{aid}/frames/{fid}/v{version}.png"
+
+
+def get_action(pid: str, aid: str) -> dict:
+    path = action_dir(pid, aid) / "action.json"
+    if not path.exists():
+        raise FileNotFoundError(aid)
+    return read_json(path)
+
+
+def save_action(pid: str, aid: str, incoming: dict) -> dict:
+    """Validate an edited action coming from the editor and persist it."""
+    current = get_action(pid, aid)
+    frames = []
+    seen = set()
+    for raw in incoming.get("frames", []):
+        fid = check_slug(str(raw.get("id", "")), "frame")
+        if fid in seen:
+            raise StoreError(f"duplicate frame id {fid}")
+        seen.add(fid)
+        versions = sorted({int(v) for v in raw.get("versions", [])})
+        version = int(raw.get("version", 0))
+        if version not in versions:
+            raise StoreError(f"frame {fid} points at missing version {version}")
+        for v in versions:
+            if not frame_path(pid, aid, fid, v).exists():
+                raise StoreError(f"frame {fid} v{v} has no image on disk")
+        offset = raw.get("offset", [0, 0])
+        frames.append({
+            "id": fid,
+            "duration": max(10, min(10_000, int(raw.get("duration", 100)))),
+            "offset": [int(offset[0]), int(offset[1])],
+            "flipX": bool(raw.get("flipX", False)),
+            "version": version,
+            "versions": versions,
+            "note": str(raw.get("note", ""))[:2000],
+        })
+    if not frames:
+        raise StoreError("an action needs at least one frame")
+    playback = incoming.get("playback", current.get("playback", "loop"))
+    if playback not in ("loop", "pingpong"):
+        raise StoreError(f"invalid playback {playback!r}")
+    saved = {
+        **current,
+        "label": str(incoming.get("label", current.get("label", aid)))[:60],
+        "grounded": bool(incoming.get("grounded", current.get("grounded", True))),
+        "playback": playback,
+        "frames": frames,
+        "nextSeq": max(int(current.get("nextSeq", 1)), int(incoming.get("nextSeq", 1))),
+        "updatedAt": int(time.time()),
+    }
+    write_json(action_dir(pid, aid) / "action.json", saved)
+    return saved
+
+
+def allocate_frame_id(pid: str, aid: str) -> str:
+    """Reserve a new frame id; the counter lives in action.json so ids never repeat."""
+    action = get_action(pid, aid)
+    frames_dir = action_dir(pid, aid) / "frames"
+    seq = int(action.get("nextSeq", 1))
+    while (frames_dir / f"f{seq:03d}").exists():
+        seq += 1
+    action["nextSeq"] = seq + 1
+    write_json(action_dir(pid, aid) / "action.json", action)
+    return f"f{seq:03d}"
+
+
+def duplicate_frame(pid: str, aid: str, fid: str, version: int) -> dict:
+    source = frame_path(pid, aid, fid, version)
+    if not source.exists():
+        raise FileNotFoundError(str(source))
+    new_id = allocate_frame_id(pid, aid)
+    target = frame_path(pid, aid, new_id, 1)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(source.read_bytes())
+    return {"id": new_id, "version": 1, "versions": [1]}
+
+
+def fit_to_cell(image: Image.Image, cell: int) -> Image.Image:
+    """Place an arbitrary image into a cell x cell canvas, bottom-centered."""
+    image = image.convert("RGBA")
+    if image.size == (cell, cell):
+        return image
+    bbox = image.getbbox()
+    if bbox:
+        image = image.crop(bbox)
+    scale = min(1.0, (cell * 0.95) / max(image.width, image.height))
+    if scale < 1.0:
+        image = image.resize((max(1, round(image.width * scale)), max(1, round(image.height * scale))), Image.LANCZOS)
+    canvas = Image.new("RGBA", (cell, cell), (0, 0, 0, 0))
+    canvas.alpha_composite(image, ((cell - image.width) // 2, cell - image.height - round(cell * 0.05)))
+    return canvas
+
+
+def add_frame_version(pid: str, aid: str, fid: str, data: bytes) -> int:
+    action = get_action(pid, aid)
+    try:
+        image = Image.open(io.BytesIO(data))
+        image.load()
+    except Exception as exc:  # Pillow raises a zoo of exception types for bad input
+        raise StoreError(f"not a readable image: {exc}") from exc
+    image = fit_to_cell(image, int(action["cellSize"]))
+    folder = action_dir(pid, aid) / "frames" / check_slug(fid, "frame")
+    existing = [int(p.stem[1:]) for p in folder.glob("v*.png") if p.stem[1:].isdigit()]
+    version = max(existing, default=0) + 1
+    folder.mkdir(parents=True, exist_ok=True)
+    image.save(folder / f"v{version}.png")
+    return version

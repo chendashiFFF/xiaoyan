@@ -39,6 +39,23 @@ npm run web
 
 然后打开 `http://localhost:4173/src/renderer/index.html`。浏览器模式会用网页拖动和网页内移动回退实现，不依赖 Electron 的窗口通信。
 
+## 帧动画工作台（Sprite Studio）
+
+`studio/` 是制作和修整动作帧的本地工具，在浏览器里用，不依赖桌面端：逐帧检查、修改、调节奏，然后导出 GIF / WebP / APNG / 精灵图。
+
+```bash
+npm run studio:setup   # 第一次：建 Python 虚拟环境、装前后端依赖
+npm run studio:import  # 第一次：把 assets/actions 的 15 个动作导入工作台
+npm run studio         # 构建前端并启动，打开 http://127.0.0.1:5180
+```
+
+- **检查**：自动标出朝向反了、脚底不齐、重心漂移、身高突变、和上一帧跳变过大、和下一帧几乎重复、碰到边缘的帧；洋葱皮叠加显示前后帧。
+- **修改**：拖动或 ⌥+方向键微调位置，一键对齐重心和脚底，水平翻转，每帧单独设显示时长，复制、删除、拖动排序，上传图片作为新版本（旧版本都保留），撤销和重做。
+- **AI 重画**：选中一帧，写一句修改要求，让本机的 Codex CLI（默认模型 `gpt-6-luna`）一次生成 1–4 张候选。整帧重画会参考前后帧和角色设定图，生成后自动对齐到原帧的脚底和重心；局部修补先框选区域，只把框里的像素合成回去。候选可以放进动画里预览，采用后成为这一帧的新版本，可撤销。需要先安装并登录 Codex CLI，每张约 1 分钟，消耗 Codex 额度；环境变量 `STUDIO_CODEX_MODEL`、`STUDIO_CODEX_WORKERS`（并行数，默认 2）可以调整。
+- **导出**：保留每帧时长；GIF 用全帧共享调色板，可选边缘底色；导出文件在 `studio/projects/<项目>/exports/`。
+
+数据都是普通文件：每个动作一个 `action.json`，记录帧顺序、时长、偏移、翻转和当前版本；每帧的所有版本存在 `frames/<帧>/v<n>.png`。`npm run studio:import -- --force` 会用 `assets/actions` 覆盖工作台里的动作。
+
 ## 打包
 
 在 macOS 上生成 DMG 和 zip：
