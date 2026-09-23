@@ -225,3 +225,114 @@ button.active-outline { border-color: #27f07a; color: #27f07a; }
   display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 8px;
   background: rgba(35, 38, 48, .95); border: 1px solid var(--accent); box-shadow: 0 6px 20px rgba(0,0,0,.35); white-space: nowrap;
 }
+
+/* ---- M3: new actions, key poses, in-betweens ---- */
+.list-head { display: flex; align-items: center; justify-content: space-between; margin-right: 2px; }
+.list-head h3 { margin-bottom: 8px; }
+.small-btn { font-size: 12px; padding: 3px 8px; color: var(--accent); }
+.tl-frame.virtual { border-style: dashed; border-color: #27f07a; background: rgba(39, 240, 122, .06); }
+.modal.narrow { width: min(640px, 100%); }
+.modal-form { padding: 16px; overflow-y: auto; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 12px; }
+.row.end { justify-content: flex-end; margin-top: 8px; }
+.row.end .hint { margin: 0 auto 0 0; }
+.keypose-panel { flex: 1; overflow-y: auto; padding: 24px 28px; }
+.keypose-panel h2 { margin: 0 0 6px; font-size: 17px; }
+.keypose-panel > p { margin: 0 0 18px; }
+.keypose-job { margin-bottom: 16px; max-width: 980px; }
+.keypose-candidate { display: flex; align-items: center; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
+.pose-preview { width: 160px; height: 160px; border-radius: 8px; display: grid; place-items: center; overflow: hidden; }
+.pose-loop { width: 160px; height: 160px; image-rendering: pixelated; }
+.pose-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+.pose-thumb { position: relative; width: 96px; height: 96px; border-radius: 6px; overflow: hidden; }
+.pose-thumb img { width: 100%; height: 100%; image-rendering: pixelated; }
+.pose-thumb span { position: absolute; left: 4px; top: 3px; font-size: 11px; background: rgba(0,0,0,.6); padding: 0 5px; border-radius: 4px; }
+.cand.placeholder.wide { aspect-ratio: auto; height: 96px; width: 100%; flex-direction: row; }
+.keypose-form { max-width: 720px; border-top: 1px solid var(--line); padding-top: 14px; }
+.keypose-form h3 { font-size: 13px; margin: 0 0 8px; }
+.keypose-form textarea { margin-bottom: 8px; }
+button.danger { color: var(--danger); padding-left: 0; }
+.onion-key { margin-left: 10px; }
+.onion-key.prev { color: #ff7a90; }
+.onion-key.next { color: #6cbcff; }
+.tool-sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+.tool-label { font-size: 12px; }
+.tl-change.insertable { cursor: pointer; border-radius: 6px; }
+.tl-change .plus {
+  position: absolute; top: 22px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 14px; line-height: 1; color: #fff; background: var(--accent-2); opacity: 0; transition: opacity .12s, transform .12s;
+}
+.tl-change.insertable:hover { background: rgba(124, 140, 255, .12); }
+.tl-change.insertable:hover .plus { opacity: 1; transform: scale(1.1); }
+button.flash { animation: flash 1.2s ease-out 2; }
+@keyframes flash { 0% { box-shadow: 0 0 0 0 rgba(124, 140, 255, .9); } 100% { box-shadow: 0 0 0 10px rgba(124, 140, 255, 0); } }
+
+/* ---- candidate review bar ---- */
+.candidate-bar {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 2; max-width: calc(100% - 24px);
+  display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 14px; border-radius: 10px; flex-wrap: wrap;
+  background: rgba(35, 38, 48, .96); border: 1px solid var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+.cb-title { display: flex; flex-direction: column; gap: 2px; font-size: 12px; white-space: nowrap; }
+.cb-title .muted { font-size: 11px; }
+.cb-cands { display: flex; gap: 6px; }
+.cb-cand { position: relative; width: 52px; height: 52px; padding: 0; border-radius: 7px; overflow: hidden; display: grid; place-items: center; }
+.cb-cand img { width: 100%; height: 100%; image-rendering: pixelated; }
+.cb-cand span { position: absolute; left: 3px; top: 2px; font-size: 10px; background: rgba(0,0,0,.65); padding: 0 4px; border-radius: 4px; }
+.cb-cand.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.cb-cand.pending { border: 1px dashed var(--line); color: var(--muted); }
+.cb-actions { display: flex; gap: 6px; }
+button.batch { width: 100%; margin: 2px 0 6px; border-style: dashed; }
+
+/* ---- characters & references ---- */
+.brand { align-items: center; }
+.character-menu { position: relative; display: flex; align-items: center; gap: 4px; }
+.character-button { display: flex; align-items: center; gap: 7px; padding: 3px 9px 3px 4px; }
+.avatar { width: 26px; height: 26px; border-radius: 6px; overflow: hidden; display: grid; place-items: center; flex: none; }
+.avatar img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.character-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 240px; padding: 6px;
+  display: grid; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+.character-dropdown button { display: flex; align-items: center; gap: 8px; text-align: left; background: transparent; border-color: transparent; }
+.character-dropdown button.active { background: #2b2f3b; border-color: #3b4152; }
+.character-dropdown .avatar { width: 34px; height: 34px; }
+.character-dropdown .name { display: flex; flex-direction: column; }
+.character-dropdown .name small { color: var(--muted); font-size: 11px; }
+.character-dropdown .new { color: var(--accent); border-top: 1px solid var(--line); border-radius: 0 0 6px 6px; margin-top: 4px; }
+.workspace.no-inspector { grid-template-columns: 210px minmax(0, 1fr); }
+.refs-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; overflow-y: auto; }
+.ref-card { padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+.ref-card + .ref-card { border-left: 1px solid var(--line); }
+.ref-card h3 { margin: 0; font-size: 14px; }
+.ref-card code { font-size: 11px; }
+.ref-card .hint { margin: 0; }
+.ref-preview { height: 280px; border-radius: 8px; display: grid; place-items: center; overflow: hidden; }
+.ref-preview img { width: 100%; height: 100%; object-fit: contain; }
+.ref-preview.small { height: 180px; cursor: pointer; }
+.ref-others { display: flex; flex-wrap: wrap; gap: 6px; }
+.ref-others button { width: 60px; height: 60px; padding: 0; overflow: hidden; }
+.ref-others img { width: 100%; height: 100%; object-fit: contain; }
+.refs-message { margin: 0; padding: 10px 16px; border-top: 1px solid var(--line); }
+.ref-pick { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.ref-pick > span:first-child { color: var(--muted); font-size: 12px; }
+@media (max-width: 900px) { .refs-body { grid-template-columns: 1fr; } .ref-card + .ref-card { border-left: 0; border-top: 1px solid var(--line); } }
+.refs-modal { width: min(1040px, 100%); }
+.refs-modal .refs-body { flex: none; }
+.refs-modal { overflow-y: auto; }
+.ref-ai { padding: 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.ref-ai h3 { margin: 0; font-size: 14px; }
+.ref-ai .hint { margin: 0; }
+.ref-sources { display: flex; flex-wrap: wrap; gap: 6px; }
+.ref-sources button { position: relative; width: 72px; height: 72px; padding: 0; overflow: hidden; }
+.ref-sources button img { width: 100%; height: 100%; object-fit: contain; }
+.ref-sources button.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.ref-sources button span { position: absolute; right: 3px; top: 2px; font-size: 11px; background: var(--accent-2); color: #fff; border-radius: 50%; width: 16px; height: 16px; display: grid; place-items: center; }
+.ref-sources button.add { color: var(--accent); border-style: dashed; }
+.ref-cands { display: flex; flex-wrap: wrap; gap: 10px; }
+.ref-cands figure { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.ref-cands figure > div { width: 180px; height: 220px; border-radius: 8px; overflow: hidden; display: grid; place-items: center; }
+.ref-cands figure > div.wide { width: 380px; }
+.ref-cands figure img { width: 100%; height: 100%; object-fit: contain; }
+.refs-modal header { position: sticky; top: 0; z-index: 1; background: var(--panel); border-radius: 12px 12px 0 0; }

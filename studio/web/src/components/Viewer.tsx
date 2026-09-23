@@ -226,6 +226,8 @@ export function Viewer({ action, index, images, urlOf, qc, view, playing, onOffs
       {frame && (
         <div className="viewer-hud">
           第 {index + 1}/{n} 帧 · {frame.duration}ms · 偏移 ({frame.offset[0]}, {frame.offset[1]}){frame.flipX ? ' · 已翻转' : ''} · {Math.round(zoom * 100)}%
+          {!playing && view.onionPrev > 0 && <span className="onion-key prev">■ 红色虚影 = 上一帧</span>}
+          {!playing && view.onionNext > 0 && <span className="onion-key next">■ 蓝色虚影 = 下一帧</span>}
         </div>
       )}
     </div>

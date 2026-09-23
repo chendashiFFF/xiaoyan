@@ -18,6 +18,7 @@ interface Props {
   onAlign: (indices: number[], axes: AlignAxes) => void;
   onReplace: (index: number, file: File) => Promise<void>;
   aiPanel?: ReactNode;
+  onDeleteAction: () => void;
 }
 
 const clampDuration = (value: number) => Math.max(10, Math.min(10000, Math.round(value) || 10));
@@ -56,7 +57,7 @@ function NumberField({ value, onCommit, min = -Infinity, max = Infinity, step = 
   );
 }
 
-export function Inspector({ action, index, qc, versionUrl, onUpdateAction, onUpdateFrame, onSetAllDurations, onAlign, onReplace, aiPanel }: Props) {
+export function Inspector({ action, index, qc, versionUrl, onUpdateAction, onUpdateFrame, onSetAllDurations, onAlign, onReplace, aiPanel, onDeleteAction }: Props) {
   const frame = action.frames[index];
   const frameQc = qc.frames[index];
   const [bulkDuration, setBulkDuration] = useState(100);
@@ -99,6 +100,7 @@ export function Inspector({ action, index, qc, versionUrl, onUpdateAction, onUpd
           <label className="check"><input type="checkbox" checked={axes.y} onChange={(e) => setAxes({ ...axes, y: e.target.checked })} /><span>脚底</span></label>
           <button disabled={!axes.x && !axes.y} onClick={() => onAlign(action.frames.map((_, i) => i), axes)}>对齐全部帧</button>
         </div>
+        <button className="ghost danger" onClick={onDeleteAction}>删除这个动作…</button>
       </section>
 
       {frame && (

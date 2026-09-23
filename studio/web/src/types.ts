@@ -37,8 +37,19 @@ export interface Project {
   name: string;
   references: string[];
   actionOrder: string[];
+  identityReference?: string | null;
+  designReference?: string | null;
   actions: ActionSummary[];
 }
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  thumb: string | null;
+  actionCount: number;
+}
+
+export type ReferenceRole = 'identity' | 'design';
 
 export type ExportFormat = 'gif' | 'webp' | 'apng' | 'sheet';
 
@@ -62,7 +73,9 @@ export interface ExportResult {
   totalDuration: number;
 }
 
-export type JobKind = 'redraw' | 'repair';
+export type JobKind = 'redraw' | 'repair' | 'inbetween' | 'keyposes' | 'master' | 'turnaround';
+export type FrameJobKind = 'redraw' | 'repair' | 'inbetween';
+export type Facing = 'front' | 'right' | 'left';
 export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 export type Rect = [number, number, number, number];
 
@@ -70,6 +83,8 @@ export interface Candidate {
   index: number;
   status: JobStatus;
   image: string | null;
+  /** keyposes: one image per pose */
+  frames?: string[];
   error: string | null;
   startedAt?: number;
   finishedAt?: number;
@@ -79,19 +94,61 @@ export interface Job {
   id: string;
   kind: JobKind;
   action: string;
-  frame: string;
+  /** null for action-level jobs (keyposes) */
+  frame: string | null;
+  /** inbetween: the frame the new one goes before */
+  frameB?: string | null;
   cellSize: number;
-  sourceVersion: number;
-  flipX: boolean;
+  sourceVersion?: number;
+  flipX?: boolean;
+  offset?: [number, number];
   instruction: string;
-  rect: Rect | null;
+  rect?: Rect | null;
+  keyframes?: number;
+  grid?: [number, number];
+  facing?: Facing;
+  duration?: number;
   model: string;
   status: JobStatus;
   reviewed: boolean;
   createdAt: number;
   finishedAt?: number;
   candidates: Candidate[];
-  accepted: { index: number; version: number }[];
+  accepted: { index: number; version?: number; frames?: string[]; reference?: string }[];
+  sources?: string[];
+}
+
+export type ReferenceStyle = 'pixel' | 'source';
+
+export interface ReferenceJobRequest {
+  kind: 'master' | 'turnaround';
+  sources: string[];
+  instruction: string;
+  style: ReferenceStyle;
+  styleFrom?: string | null;
+  candidates: number;
+}
+
+export type AcceptResult =
+  | { kind: 'redraw' | 'repair'; action: string; frame: string; version: number }
+  | { kind: 'inbetween'; action: string; frame: Frame; after: string }
+  | { kind: 'keyposes'; action: string; frames: Frame[] }
+  | { kind: 'master' | 'turnaround'; reference: string; project: Project };
+
+export interface NewActionRequest {
+  id: string;
+  label: string;
+  cellSize: number;
+  grounded: boolean;
+  playback: Playback;
+}
+
+export interface KeyposeRequest {
+  instruction: string;
+  keyframes: number;
+  facing: Facing;
+  candidates: number;
+  duration: number;
 }
 
 export interface CodexStatus {

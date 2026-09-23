@@ -11,11 +11,15 @@ interface Props {
   onMove: (from: number, to: number) => void;
   /** Per frame id: an AI job is still running, or finished candidates are waiting for review. */
   aiState?: Record<string, 'running' | 'ready' | undefined>;
+  /** Id of a not-yet-accepted in-between shown for preview. */
+  previewId?: string;
+  /** Clicked the gap after frame `index` to add an in-between there. */
+  onInsertBetween?: (index: number) => void;
 }
 
 const PX_PER_MS = 0.9;
 
-export function Timeline({ action, current, qc, urlOf, onSelect, onMove, aiState = {} }: Props) {
+export function Timeline({ action, current, qc, urlOf, onSelect, onMove, aiState = {}, previewId, onInsertBetween }: Props) {
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
   const cell = action.cellSize;
   const n = action.frames.length;
@@ -35,14 +39,16 @@ export function Timeline({ action, current, qc, urlOf, onSelect, onMove, aiState
         const jumpNext = qc.frames[(index + 1) % n]?.flags.some((f) => f.kind === 'jump') && change !== null;
         const dup = flags.some((f) => f.kind === 'dup');
         const ratio = change !== null && qc.medianChange ? change / qc.medianChange : 0;
+        const wraps = index + 1 === n;
+        const hasGap = n > 1 && (!wraps || action.playback === 'loop') && frame.id !== previewId && action.frames[(index + 1) % n]?.id !== previewId;
         const width = Math.max(64, Math.min(280, frame.duration * PX_PER_MS));
         return (
           <Fragment key={frame.id}>
             {drag && drag.to === index && drag.from !== index && drag.from !== index - 1 && <div className="drop-marker" />}
             <div
-              className={`tl-frame ${index === current ? 'active' : ''} ${drag?.from === index ? 'dragging' : ''}`}
+              className={`tl-frame ${index === current ? 'active' : ''} ${drag?.from === index ? 'dragging' : ''} ${frame.id === previewId ? 'virtual' : ''}`}
               style={{ width }}
-              draggable
+              draggable={frame.id !== previewId}
               onClick={() => onSelect(index)}
               onDragStart={(event) => {
                 event.dataTransfer.effectAllowed = 'move';
@@ -87,13 +93,18 @@ export function Timeline({ action, current, qc, urlOf, onSelect, onMove, aiState
                 {warn === 0 && info > 0 && <span className="badge info">i</span>}
               </div>
             </div>
-            {change !== null && (
+            {(change !== null || hasGap) && (
               <div
-                className={`tl-change ${jumpNext ? 'jump' : dup ? 'dup' : ''}`}
-                title={`到${index + 1 === n ? '第 1' : `第 ${index + 2}`} 帧的变化量 ${change.toFixed(1)}（平均 ${qc.medianChange.toFixed(1)}）`}
+                className={`tl-change ${jumpNext ? 'jump' : dup ? 'dup' : ''} ${hasGap && onInsertBetween ? 'insertable' : ''}`}
+                title={[
+                  change !== null ? `到${wraps ? '第 1' : `第 ${index + 2}`} 帧的变化量 ${change.toFixed(1)}（平均 ${qc.medianChange.toFixed(1)}）` : '',
+                  hasGap && onInsertBetween ? `点击在第 ${index + 1} 帧和第 ${wraps ? 1 : index + 2} 帧之间补一帧` : '',
+                ].filter(Boolean).join('\n')}
+                onClick={hasGap && onInsertBetween ? () => onInsertBetween(index) : undefined}
               >
-                <i style={{ height: `${Math.max(6, Math.min(100, ratio * 40))}%` }} />
-                {index + 1 === n && <span className="wrap">↺</span>}
+                {change !== null && <i style={{ height: `${Math.max(6, Math.min(100, ratio * 40))}%` }} />}
+                {hasGap && onInsertBetween && <span className="plus">+</span>}
+                {wraps && <span className="wrap">↺</span>}
               </div>
             )}
           </Fragment>

@@ -1,4 +1,4 @@
-import type { Action, CodexStatus, ExportOptions, ExportResult, Frame, Job, JobKind, Project, Rect } from './types';
+import type { AcceptResult, Action, CodexStatus, ExportOptions, ExportResult, Frame, FrameJobKind, Job, KeyposeRequest, NewActionRequest, Project, ProjectSummary, Rect, ReferenceJobRequest, ReferenceRole } from './types';
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -22,7 +22,15 @@ const json = (method: string, body: unknown): RequestInit => ({
 });
 
 export const api = {
-  listProjects: () => request<{ id: string; name: string }[]>('/api/projects'),
+  listProjects: () => request<ProjectSummary[]>('/api/projects'),
+  createProject: (body: { id: string; name: string }) => request<Project>('/api/projects', json('POST', body)),
+  updateProject: (pid: string, patch: { name?: string; identityReference?: string | null; designReference?: string | null }) =>
+    request<Project>(`/api/projects/${pid}`, json('PATCH', patch)),
+  uploadReference: (pid: string, file: File, role: ReferenceRole | null) =>
+    request<{ reference: string; warning: string | null; project: Project }>(
+      `/api/projects/${pid}/references?${new URLSearchParams({ ...(role ? { role } : {}), name: file.name })}`,
+      { method: 'POST', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file },
+    ),
   getProject: (pid: string) => request<Project>(`/api/projects/${pid}`),
   getAction: (pid: string, aid: string) => request<Action>(`/api/projects/${pid}/actions/${aid}`),
   saveAction: (pid: string, action: Action) =>
@@ -41,18 +49,32 @@ export const api = {
   exportAction: (pid: string, aid: string, options: ExportOptions) =>
     request<ExportResult>(`/api/projects/${pid}/actions/${aid}/export`, json('POST', options)),
   codexStatus: () => request<CodexStatus>('/api/codex'),
-  createJob: (pid: string, aid: string, fid: string, body: { kind: JobKind; instruction: string; candidates: number; rect?: Rect | null }) =>
+  createReferenceJob: (pid: string, body: ReferenceJobRequest) => request<Job>(`/api/projects/${pid}/reference-jobs`, json('POST', body)),
+  listReferenceJobs: (pid: string) => request<Job[]>(`/api/projects/${pid}/reference-jobs`),
+  createAction: (pid: string, body: NewActionRequest) => request<Action>(`/api/projects/${pid}/actions`, json('POST', body)),
+  deleteAction: (pid: string, aid: string) => request<{ trashedTo: string }>(`/api/projects/${pid}/actions/${aid}`, { method: 'DELETE' }),
+  createKeyposes: (pid: string, aid: string, body: KeyposeRequest) =>
+    request<Job>(`/api/projects/${pid}/actions/${aid}/jobs`, json('POST', { kind: 'keyposes', ...body })),
+  createJob: (pid: string, aid: string, fid: string, body: { kind: FrameJobKind; instruction: string; candidates: number; rect?: Rect | null }) =>
     request<Job>(`/api/projects/${pid}/actions/${aid}/frames/${fid}/jobs`, json('POST', body)),
   listJobs: (pid: string, aid: string) => request<Job[]>(`/api/projects/${pid}/actions/${aid}/jobs`),
   cancelJob: (pid: string, jid: string) => request<Job>(`/api/projects/${pid}/jobs/${jid}/cancel`, json('POST', {})),
   reviewJob: (pid: string, jid: string, reviewed: boolean) =>
     request<Job>(`/api/projects/${pid}/jobs/${jid}/review`, json('POST', { reviewed })),
   acceptCandidate: (pid: string, jid: string, index: number) =>
-    request<{ version: number; frame: string; action: string }>(`/api/projects/${pid}/jobs/${jid}/candidates/${index}/accept`, json('POST', {})),
+    request<AcceptResult>(`/api/projects/${pid}/jobs/${jid}/candidates/${index}/accept`, json('POST', {})),
 };
 
 export function candidateUrl(pid: string, job: Job, index: number): string {
   return `/files/${pid}/jobs/${job.id}/cand-${index}.png`;
+}
+
+export function jobFileUrl(pid: string, job: Job, name: string): string {
+  return `/files/${pid}/jobs/${job.id}/${name}`;
+}
+
+export function projectFileUrl(pid: string, rel: string): string {
+  return `/files/${pid}/${rel}`;
 }
 
 export function frameUrl(pid: string, aid: string, fid: string, version: number): string {

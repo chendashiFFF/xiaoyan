@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { CodexStatus, Frame, Job, JobKind, Rect } from '../types';
+import type { CodexStatus, Frame, FrameJobKind, Job, Rect } from '../types';
 
 export interface PreviewRef {
   jobId: string;
@@ -10,13 +10,20 @@ interface Props {
   frame: Frame;
   codex: CodexStatus | null;
   jobs: Job[];
-  mode: JobKind;
-  onMode: (mode: JobKind) => void;
+  mode: FrameJobKind;
+  onMode: (mode: FrameJobKind) => void;
+  /** Label of the frame an in-between would go before, or null when there is none. */
+  nextLabel: string | null;
+  keepTotal: boolean;
+  onKeepTotal: (keep: boolean) => void;
+  /** Gaps that could still get an in-between (ones already being filled are left out). */
+  gapCount: number;
+  onSubmitAll: (candidates: number) => void;
   rect: Rect | null;
   selecting: boolean;
   onToggleSelect: () => void;
   onClearRect: () => void;
-  onSubmit: (request: { kind: JobKind; instruction: string; candidates: number }) => Promise<void>;
+  onSubmit: (request: { kind: FrameJobKind; instruction: string; candidates: number }) => Promise<void>;
   preview: PreviewRef | null;
   onPreview: (job: Job, index: number) => void;
   onAccept: (job: Job, index: number) => void;
@@ -26,6 +33,7 @@ interface Props {
 }
 
 const STATUS: Record<Job['status'], string> = { queued: '排队中', running: '生成中', done: '已完成', failed: '失败', cancelled: '已取消' };
+const KIND: Record<string, string> = { redraw: '整帧重画', repair: '局部修补', inbetween: '补中间帧' };
 const active = (job: Job) => job.status === 'queued' || job.status === 'running';
 
 function useNow(enabled: boolean): number {
@@ -45,7 +53,7 @@ const clock = (seconds: number) => {
 };
 
 export function AiPanel(props: Props) {
-  const { frame, codex, jobs, mode, rect, selecting, preview } = props;
+  const { frame, codex, jobs, mode, rect, selecting, preview, nextLabel } = props;
   const [instruction, setInstruction] = useState('');
   const [count, setCount] = useState(2);
   const [busy, setBusy] = useState(false);
@@ -71,12 +79,21 @@ export function AiPanel(props: Props) {
       <div className="segmented">
         <button className={mode === 'redraw' ? 'active' : ''} onClick={() => props.onMode('redraw')}>整帧重画</button>
         <button className={mode === 'repair' ? 'active' : ''} onClick={() => props.onMode('repair')}>局部修补</button>
+        <button className={mode === 'inbetween' ? 'active' : ''} onClick={() => props.onMode('inbetween')}>补中间帧</button>
       </div>
       <p className="muted hint">
-        {mode === 'redraw'
-          ? '参考前后帧和角色设定重画这一帧，生成后自动对齐到原来的脚底和重心。'
-          : '只重画框里的部分，框外的像素保持原样。'}
+        {mode === 'redraw' && '参考前后帧和角色设定重画这一帧，生成后自动对齐到原来的脚底和重心。'}
+        {mode === 'repair' && '只重画框里的部分，框外的像素保持原样。'}
+        {mode === 'inbetween' && (nextLabel
+          ? `在这一帧和${nextLabel}之间画一张过渡帧，采用后插在它们中间。`
+          : '这是最后一帧，后面没有下一帧（改成"循环"播放后可以和第 1 帧之间补）。')}
       </p>
+      {mode === 'inbetween' && (
+        <label className="check">
+          <input type="checkbox" checked={props.keepTotal} onChange={(e) => props.onKeepTotal(e.target.checked)} />
+          <span>保持总时长（把这一帧的时长分一半给新帧）</span>
+        </label>
+      )}
       {mode === 'repair' && (
         <div className="row">
           <button className={selecting ? 'active-outline' : ''} onClick={props.onToggleSelect}>
@@ -90,9 +107,11 @@ export function AiPanel(props: Props) {
         rows={3}
         value={instruction}
         onChange={(e) => setInstruction(e.target.value)}
-        placeholder={mode === 'redraw'
-          ? '想怎么改？比如：前面的手臂再抬高一点。留空则按前后帧自动理顺姿势'
-          : '框里要怎么改？比如：把手画成握拳'}
+        placeholder={{
+          redraw: '想怎么改？比如：前面的手臂再抬高一点。留空则按前后帧自动理顺姿势',
+          repair: '框里要怎么改？比如：把手画成握拳',
+          inbetween: '一般留空即可；也可以补充，比如：裙摆飘得更明显',
+        }[mode]}
       />
       {frame.note && !instruction && (
         <button className="ghost link" onClick={() => setInstruction(frame.note)}>用这帧的备注：{frame.note.slice(0, 24)}{frame.note.length > 24 ? '…' : ''}</button>
@@ -103,10 +122,20 @@ export function AiPanel(props: Props) {
             {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n} 张</option>)}
           </select>
         </label>
-        <button className="primary grow" disabled={busy || unavailable || (mode === 'repair' && !rect)} onClick={submit}>
+        <button className="primary grow" disabled={busy || unavailable || (mode === 'repair' && !rect) || (mode === 'inbetween' && !nextLabel)} onClick={submit}>
           {busy ? '提交中…' : `生成 ${count} 张候选`}
         </button>
       </div>
+      {mode === 'inbetween' && (
+        <button
+          className="batch"
+          disabled={busy || unavailable || !props.gapCount}
+          onClick={() => props.onSubmitAll(count)}
+          title="每两帧之间都补一帧（已经在补的间隔会跳过）"
+        >
+          {props.gapCount ? `所有间隔各补一帧（${props.gapCount} 处 × ${count} 张）` : '所有间隔都已经在补了'}
+        </button>
+      )}
       <p className="muted hint">每张约 1 分钟，会消耗你的 Codex 额度。生成时可以继续编辑其他帧。</p>
 
       <div className="jobs">
@@ -117,8 +146,8 @@ export function AiPanel(props: Props) {
           return (
             <div key={job.id} className={`job ${job.status}`}>
               <div className="job-head">
-                <span>{job.kind === 'repair' ? '局部修补' : '整帧重画'} · {STATUS[job.status]}{active(job) ? ` ${clock(elapsed)}` : ''}</span>
-                <span className="muted">基于 v{job.sourceVersion}</span>
+                <span>{KIND[job.kind]} · {STATUS[job.status]}{active(job) ? ` ${clock(elapsed)}` : ''}</span>
+                {job.kind !== 'inbetween' && <span className="muted">基于 v{job.sourceVersion}</span>}
               </div>
               {job.instruction && <p className="job-text">{job.instruction}</p>}
               <div className="cands">
@@ -132,8 +161,8 @@ export function AiPanel(props: Props) {
                         onClick={() => props.onPreview(job, c.index)}
                         title="点击在动画里预览"
                       >
-                        <img src={props.candidateSrc(job, c.index)} alt={`候选 ${c.index}`} style={job.flipX ? { transform: 'scaleX(-1)' } : undefined} />
-                        {accepted && <span className="tag">已采用 v{accepted.version}</span>}
+                        <img src={props.candidateSrc(job, c.index)} alt={`候选 ${c.index}`} style={job.flipX && job.kind !== 'inbetween' ? { transform: 'scaleX(-1)' } : undefined} />
+                        {accepted && <span className="tag">{accepted.version ? `已采用 v${accepted.version}` : '已插入'}</span>}
                       </button>
                     );
                   }

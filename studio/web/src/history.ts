@@ -15,6 +15,7 @@ export interface HistoryState {
 
 export type HistoryEvent =
   | { type: 'load'; doc: Action }
+  | { type: 'clear' }
   | { type: 'edit'; update: (doc: Action) => Action; coalesce?: string }
   | { type: 'undo' }
   | { type: 'redo' };
@@ -25,6 +26,8 @@ export function historyReducer(state: HistoryState, event: HistoryEvent): Histor
   switch (event.type) {
     case 'load':
       return { ...initialHistory, doc: event.doc, revision: 0 };
+    case 'clear':
+      return initialHistory;
     case 'edit': {
       if (!state.doc) return state;
       const next = event.update(state.doc);
