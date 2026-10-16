@@ -1,0 +1,68 @@
+{
+  "id": "surprise",
+  "label": "惊讶",
+  "cellSize": 256,
+  "grounded": true,
+  "playback": "loop",
+  "frames": [
+    {
+      "id": "f001",
+      "duration": 125,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f002",
+      "duration": 125,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f003",
+      "duration": 125,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    },
+    {
+      "id": "f004",
+      "duration": 125,
+      "offset": [
+        0,
+        0
+      ],
+      "flipX": false,
+      "version": 1,
+      "versions": [
+        1
+      ],
+      "note": ""
+    }
+  ],
+  "nextSeq": 5,
+  "source": "assets/actions/surprise",
+  "updatedAt": 1790131359
+}
