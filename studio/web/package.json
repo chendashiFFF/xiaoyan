@@ -1,12 +1,13 @@
 {
-  "name": "xiaoyan-sprite-studio",
+  "name": "xiaoyan-lyric-studio",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p . && vite build",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node --experimental-strip-types --test tests/lyrics.test.mjs"
   },
   "dependencies": {
     "react": "^19.3.0",

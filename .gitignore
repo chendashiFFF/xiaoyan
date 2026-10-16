@@ -15,3 +15,6 @@ studio/projects/*/jobs/
 studio/projects/*/trash/
 studio/settings.local.json
 studio/projects/.trash/
+
+# Local video project, uploaded media, generated sprite cache and MP4 exports
+studio/music/

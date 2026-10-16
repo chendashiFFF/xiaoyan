@@ -34,6 +34,10 @@ def _error_text(response: requests.Response) -> str:
         message = error.get("message") if isinstance(error, dict) else str(error)
     except ValueError:
         message = response.text[:300]
+    if response.status_code == 403 and 'Image generation is not enabled for this group' in str(message):
+        return '当前密钥所属分组未开启生图权限。请在图片服务后台开启生图，或在“生图设置”更换有生图权限的密钥。'
+    if response.status_code == 401:
+        return '图片服务未通过密钥验证，请检查“生图设置”里的服务地址和密钥。'
     return f"HTTP {response.status_code}：{message}"
 
 

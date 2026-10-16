@@ -1,21 +1,17 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import codex, exporter, imageapi, jobs, store, suggest
-from . import settings as generator_settings
+from . import music, characters, store, art, typography
 from .store import STUDIO_DIR, StoreError
 
 WEB_DIST = STUDIO_DIR / "web" / "dist"
-MAX_UPLOAD = 32 * 1024 * 1024
-
-app = FastAPI(title="Xiaoyan Sprite Studio")
-jobs.recover_interrupted()
-_codex_version = codex.codex_version()
+app = FastAPI(title="Xiaoyan Lyric Studio")
+app.include_router(characters.app)
+store.PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/files", StaticFiles(directory=store.PROJECTS_DIR), name="character-files")
 
 
 @app.exception_handler(StoreError)
@@ -25,169 +21,119 @@ async def store_error(_request: Request, exc: StoreError) -> JSONResponse:
 
 @app.exception_handler(FileNotFoundError)
 async def not_found(_request: Request, exc: FileNotFoundError) -> JSONResponse:
-    return JSONResponse({"detail": f"not found: {exc}"}, status_code=404)
+    return JSONResponse({"detail": str(exc)}, status_code=404)
 
 
-@app.get("/api/projects")
-def list_projects() -> list[dict]:
-    return store.list_projects()
+@app.get("/api/music/library")
+def library() -> dict:
+    return music.library()
 
 
-@app.post("/api/projects")
-async def create_project(request: Request) -> dict:
-    return store.create_project(await request.json())
+@app.get("/api/music/document")
+def document() -> dict:
+    return music.get_document()
 
 
-@app.delete("/api/projects/{pid}")
-def delete_project(pid: str) -> dict:
-    return store.delete_project(pid)
+@app.put("/api/music/document")
+def save_document(doc: music.Document) -> dict:
+    return music.save_document(doc)
 
 
-@app.patch("/api/projects/{pid}")
-async def update_project(pid: str, request: Request) -> dict:
-    return store.update_project(pid, await request.json())
-
-
-@app.post("/api/projects/{pid}/references")
-async def upload_reference(pid: str, request: Request, role: Optional[str] = None, name: str = "reference") -> dict:
-    data = await request.body()
+@app.post("/api/music/uploads/{kind}")
+async def upload(kind: str, request: Request, name: str = "upload.png") -> dict:
+    limit = (64 if kind == "audio" else 30 if kind == "font" else 12) * 1024 * 1024
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > limit:
+            raise HTTPException(413, f"文件过大，上限 {limit // 1024 // 1024} MB")
     if not data:
-        raise HTTPException(400, "empty upload")
-    if len(data) > MAX_UPLOAD:
-        raise HTTPException(413, "image too large")
-    return store.add_reference(pid, data, role, name)
+        raise HTTPException(400, "文件为空")
+    # Image decoding and ffprobe must not block the async server loop.
+    from starlette.concurrency import run_in_threadpool
+    return await run_in_threadpool(music.upload, bytes(data), kind, name)
 
 
-@app.get("/api/projects/{pid}")
-def get_project(pid: str) -> dict:
-    return store.get_project(pid)
+@app.post("/api/music/exports")
+def create_export(doc: music.Document) -> dict:
+    return music.create_export(doc)
 
 
-@app.get("/api/projects/{pid}/actions/{aid}")
-def get_action(pid: str, aid: str) -> dict:
-    return store.get_action(pid, aid)
+@app.get("/api/music/exports/{jid}")
+def export_status(jid: str) -> dict:
+    return music.get_export(jid)
 
 
-@app.post("/api/projects/{pid}/actions")
-async def create_action(pid: str, request: Request) -> dict:
-    return store.create_action(pid, await request.json())
+@app.post("/api/music/exports/{jid}/cancel")
+def cancel_export(jid: str) -> dict:
+    music.get_export(jid)
+    music.CANCEL[jid].set()
+    return music.get_export(jid)
 
 
-@app.put("/api/projects/{pid}/actions/{aid}")
-async def save_action(pid: str, aid: str, request: Request) -> dict:
-    return store.save_action(pid, aid, await request.json())
+@app.get('/api/music/templates')
+def list_templates():
+    return music.templates()
 
 
-@app.delete("/api/projects/{pid}/actions/{aid}")
-def delete_action(pid: str, aid: str) -> dict:
-    return store.delete_action(pid, aid)
+@app.post('/api/music/templates')
+def save_template(body: dict):
+    return music.save_template(body)
 
 
-@app.post("/api/projects/{pid}/actions/{aid}/frames/{fid}/duplicate")
-async def duplicate_frame(pid: str, aid: str, fid: str, request: Request) -> dict:
-    body = await request.json()
-    return store.duplicate_frame(pid, aid, fid, int(body.get("version", 1)))
+@app.post('/api/music/typography')
+def typeset(doc: music.Document):
+    return typography.Typeset(doc.model_dump(), music.MEDIA).public()
 
 
-@app.post("/api/projects/{pid}/actions/{aid}/frames/{fid}/versions")
-async def upload_version(pid: str, aid: str, fid: str, request: Request) -> dict:
-    data = await request.body()
-    if not data:
-        raise HTTPException(400, "empty upload")
-    if len(data) > MAX_UPLOAD:
-        raise HTTPException(413, "image too large")
-    return {"version": store.add_frame_version(pid, aid, fid, data)}
+@app.post('/api/music/art')
+def create_art(body: dict):
+    return art.create(body)
 
 
-@app.post("/api/projects/{pid}/actions/{aid}/export")
-async def export_action(pid: str, aid: str, request: Request) -> dict:
-    return exporter.export_action(pid, aid, await request.json())
+@app.get('/api/music/art/{jid}')
+def art_status(jid: str):
+    return art.get(jid)
 
 
-@app.get("/api/codex")
-def codex_status() -> dict:
-    return {"available": _codex_version is not None, "version": _codex_version, "model": codex.DEFAULT_MODEL}
+@app.get('/api/music/waveform/{name}')
+def waveform(name: str):
+    import subprocess
+    import array
+    source = music.media_path(name)
+    music.probe(source)
+    result = subprocess.run([music.ffmpeg(), '-v', 'error', '-i', str(source), '-vn', '-ac', '1', '-ar', '2000', '-f', 'f32le', 'pipe:1'], capture_output=True, timeout=30, check=True)
+    samples = array.array('f'); samples.frombytes(result.stdout)
+    step = max(1, len(samples) // 400)
+    peaks = [max(abs(v) for v in samples[i:i+step]) for i in range(0,len(samples),step)]
+    peak = max(peaks, default=1) or 1
+    return {'peaks': [round(v/peak,3) for v in peaks]}
 
 
-@app.get("/api/settings")
-def get_settings() -> dict:
-    return {**generator_settings.public(), "codex": codex_status()}
-
-
-@app.put("/api/settings")
-async def put_settings(request: Request) -> dict:
-    return {**generator_settings.update(await request.json()), "codex": codex_status()}
-
-
-@app.post("/api/settings/test")
-async def test_settings(request: Request) -> dict:
-    """Checks the endpoint and key by listing models; generates nothing, so it costs nothing."""
-    body = await request.json()
-    api = {**generator_settings.load()["api"], **{k: v for k, v in (body.get("api") or {}).items() if v}}
-    try:
-        models = imageapi.list_models(api)
-    except imageapi.ImageApiError as exc:
-        return {"ok": False, "error": str(exc), "models": []}
-    return {"ok": True, "models": models, "hasModel": api["model"] in models, "hasTextModel": api.get("textModel") in models}
-
-
-@app.post("/api/projects/{pid}/actions/{aid}/frames/{fid}/jobs")
-async def create_job(pid: str, aid: str, fid: str, request: Request) -> dict:
-    return jobs.create_job(pid, aid, fid, await request.json())
-
-
-@app.post("/api/projects/{pid}/actions/{aid}/jobs")
-async def create_action_job(pid: str, aid: str, request: Request) -> dict:
-    return jobs.create_action_job(pid, aid, await request.json())
-
-
-@app.post("/api/projects/{pid}/action-suggestions")
-def action_suggestions(pid: str, body: dict) -> dict:
-    return {"suggestions": suggest.suggest_actions(pid, str(body.get("idea", "")), int(body.get("count", 6)))}
-
-
-@app.post("/api/projects/{pid}/reference-jobs")
-async def create_reference_job(pid: str, request: Request) -> dict:
-    return jobs.create_reference_job(pid, await request.json())
-
-
-@app.get("/api/projects/{pid}/reference-jobs")
-def list_reference_jobs(pid: str) -> list[dict]:
-    return jobs.list_jobs(pid, kinds=jobs.REFERENCE_KINDS)
-
-
-@app.get("/api/projects/{pid}/actions/{aid}/jobs")
-def list_jobs(pid: str, aid: str) -> list[dict]:
-    return jobs.list_jobs(pid, aid)
-
-
-@app.get("/api/projects/{pid}/jobs/{jid}")
-def get_job(pid: str, jid: str) -> dict:
-    return jobs.get_job(pid, jid)
-
-
-@app.post("/api/projects/{pid}/jobs/{jid}/cancel")
-def cancel_job(pid: str, jid: str) -> dict:
-    return jobs.cancel_job(pid, jid)
-
-
-@app.post("/api/projects/{pid}/jobs/{jid}/review")
-async def review_job(pid: str, jid: str, request: Request) -> dict:
-    body = await request.json()
-    return jobs.set_reviewed(pid, jid, bool(body.get("reviewed", True)))
-
-
-@app.post("/api/projects/{pid}/jobs/{jid}/candidates/{n}/accept")
-def accept_candidate(pid: str, jid: str, n: int) -> dict:
-    return jobs.accept_candidate(pid, jid, n)
-
-
-store.PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/files", StaticFiles(directory=store.PROJECTS_DIR), name="files")
-
-if WEB_DIST.exists():
+app.mount('/fonts', StaticFiles(directory=typography.FONTS), name='fonts')
+app.mount("/media", StaticFiles(directory=music.MEDIA), name="media")
+app.mount("/exports", StaticFiles(directory=music.EXPORTS), name="exports")
+if (WEB_DIST / "assets").exists():
     app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="web-assets")
 
-    @app.get("/{path:path}", include_in_schema=False)
-    def spa(path: str) -> FileResponse:
-        return FileResponse(WEB_DIST / "index.html")
+
+@app.get("/", include_in_schema=False)
+def index():
+    if not (WEB_DIST / "index.html").exists():
+        return JSONResponse({"detail": "请先运行 npm run build，或使用 npm run dev 启动开发预览"}, status_code=503)
+    return FileResponse(WEB_DIST / "index.html")
+
+
+@app.get("/characters/", include_in_schema=False)
+def character_workshop():
+    return FileResponse(WEB_DIST / "characters" / "index.html")
+
+
+@app.get('/favicon.svg', include_in_schema=False)
+def favicon():
+    return FileResponse(WEB_DIST / 'favicon.svg', media_type='image/svg+xml')
+
+
+@app.get("/video/", include_in_schema=False)
+def video_page():
+    return FileResponse(WEB_DIST / "video" / "index.html")

@@ -102,6 +102,31 @@ def _project_settings(pid: str) -> dict:
     }
 
 
+def _attach_references(pid, body, folder, inputs, labels):
+    project = read_json(project_dir(pid) / "project.json")
+    refs = project.get("references", [])
+    metadata = project.get("referenceSettings", {})
+    selected = body.get("references", [r for r in refs if metadata.get(r, {}).get("enabled", True)])
+    if not isinstance(selected, list) or not selected or any(r not in refs for r in selected) or len(set(selected)) != len(selected):
+        raise StoreError("请至少选择一张有效的人物参考图")
+    mode = body.get("propMode", project.get("propMode", "keep"))
+    if mode not in ("keep", "character"):
+        raise StoreError("道具选项无效")
+    snapshots = []
+    for i, rel in enumerate(selected):
+        source = project_dir(pid) / rel
+        if not source.is_file():
+            raise StoreError(f"参考图文件不存在：{rel}")
+        target = folder / f"reference-{i + 1}.png"
+        shutil.copyfile(source, target)
+        inputs.append(target)
+        angle = metadata.get(rel, {}).get("angle", "unknown")
+        labels.append(f"Original character reference, view: {angle}. Match identity, costume, proportions, pixel density and rendering style. Ignore background; use animation inputs only for pose and continuity. " +
+                      ("Keep the depicted props consistent with the requested action." if mode == "keep" else "Reference ONLY the character; omit microphones, stands and other source props unless explicitly requested."))
+        snapshots.append({"source": rel, "snapshot": target.name, "angle": angle})
+    return {"referenceSnapshots": snapshots, "propMode": mode}
+
+
 def _displayed(pid: str, aid: str, frame: dict, relative_to: list[int] | None = None) -> Image.Image:
     """A frame as the editor shows it (mirrored if flipped); optionally offset relative to another frame."""
     image = process.oriented(Image.open(frame_path(pid, aid, frame["id"], frame["version"])), bool(frame.get("flipX")))
@@ -114,6 +139,17 @@ def _displayed(pid: str, aid: str, frame: dict, relative_to: list[int] | None = 
 
 DESIGN_LABEL = ("the character design sheet: front, side and back views plus close-ups of face, hair accessories and "
                 "embroidery (identity reference only; ignore its background, text and layout).")
+
+PIXEL_STYLE = (
+    "Rendering style is a hard constraint: match the official character reference's pixel-art technique, "
+    "not just its identity. Preserve its apparent pixel size relative to the character, crisp stepped contours, "
+    "deliberate pixel clusters, outline thickness and limited shading ramps in every pose. "
+    "Use discrete blocks of colour, not smooth gradients, airbrushing, blur, vector-smooth curves or "
+    "high-resolution painted hair strands. Do not add finer detail than the reference. "
+    "Do not reinterpret the sprite as a smooth anime illustration or 3D render. "
+    "The layout template controls placement only; the official reference controls the art style. "
+    "For existing-frame edits, retain the base frame's pixel grid and detail scale."
+)
 
 REPLY = "When the image has been generated, reply with only its absolute file path."
 TOOL = "Call your built-in image generation tool exactly once. Do not run shell commands and do not write any files yourself."
@@ -130,6 +166,7 @@ def build_prompt(kind: str, instruction: str, character: str, labels: list[str],
     extra = extra or {}
     instruction = instruction.strip()
     head = f'You are working on a 2D sprite animation of the character "{character}".\n{TOOL}\n\nAttached images, in order:\n{_listing(labels)}\n\n'
+    head += PIXEL_STYLE + "\n\n"
     if kind == "repair":
         change = instruction or "Fix any drawing errors so it matches the character reference."
         return head + f"""Edit Image 1. Only change what is inside the green box shown in Image 2. Change requested: {change}
@@ -367,15 +404,11 @@ def create_job(pid: str, aid: str, fid: str, body: dict) -> dict:
             process.magenta_canvas(_displayed(pid, aid, frames[j], frame["offset"]), cell).save(path)
             inputs.append(path)
             labels.append(label)
-    if settings["identity"] and settings["identity"].exists():
-        inputs.append(settings["identity"])
-        labels.append("the official character reference (identity only; ignore its background and pose).")
-    if settings["design"] and settings["design"].exists():
-        inputs.append(settings["design"])
-        labels.append(DESIGN_LABEL)
+    reference_info = _attach_references(pid, body, folder, inputs, labels)
 
     job = _base_job(jid, kind, aid, cell, instruction, count, settings)
     job.update({
+        **reference_info,
         "frame": fid,
         "frameB": after["id"] if after else None,
         "sourceVersion": frame["version"],
@@ -407,21 +440,19 @@ def create_action_job(pid: str, aid: str, body: dict) -> dict:
     count = max(1, min(MAX_CANDIDATES, int(body.get("candidates", 2))))
     action = get_action(pid, aid)
     settings = _project_settings(pid)
-    if not settings["identity"] or not settings["identity"].exists():
-        raise StoreError("项目没有角色设定图（project.json 的 identityReference）")
 
     rows, cols = SHEET_LAYOUTS[keyframes]
     jid, folder = _new_job_folder(pid)
-    process.anchor_sheet(Image.open(settings["identity"]), rows, cols).save(folder / "input-1.png")
-    inputs = [folder / "input-1.png", settings["identity"]]
-    labels = [f"layout template: a {rows} × {cols} grid on magenta; each cell shows the body size and feet position to use.",
-              "the official character reference (identity only; ignore its background and pose)."]
-    if settings["design"] and settings["design"].exists():
-        inputs.append(settings["design"])
-        labels.append(DESIGN_LABEL)
+    inputs = [folder / "input-1.png"]
+    labels = [f"layout template: a {rows} × {cols} grid on magenta; each cell shows approximate body size and feet position, not a pose or background to copy."]
+    reference_info = _attach_references(pid, body, folder, inputs, labels)
+    chosen = reference_info["referenceSnapshots"]
+    anchor = next((r for r in chosen if project_dir(pid) / r["source"] == settings["identity"]), chosen[0])
+    process.anchor_sheet(Image.open(folder / anchor["snapshot"]), rows, cols).save(folder / "input-1.png")
     extra = {"grid": [rows, cols], "facing": facing, "grounded": action.get("grounded", True), "playback": action.get("playback", "loop")}
     job = _base_job(jid, kind, aid, int(action["cellSize"]), description, count, settings)
     job.update({
+        **reference_info,
         "keyframes": keyframes,
         "grid": [rows, cols],
         "facing": facing,

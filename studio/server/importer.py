@@ -1,11 +1,10 @@
-"""Import the desktop pet's existing frames into a studio project.
+"""Import bundled character frames into the video workbench asset library.
 
     studio/.venv/bin/python -m studio.server.importer [--force]
 """
 from __future__ import annotations
 
 import argparse
-import re
 import shutil
 import time
 
@@ -14,17 +13,12 @@ from .store import PROJECTS_DIR, STUDIO_DIR, action_dir, read_json, write_json
 REPO_DIR = STUDIO_DIR.parent
 ACTIONS_SRC = REPO_DIR / "assets" / "actions"
 REFERENCES_SRC = REPO_DIR / "assets" / "references"
-APP_JS = REPO_DIR / "src" / "renderer" / "app.js"
 PROJECT_ID = "xiaoyan"
 AIRBORNE = {"jump"}
-ACTION_ROW = re.compile(r"(\w+): \{ label: '([^']+)', frames: (\d+), fps: (\d+), loop: (true|false)")
 
 
 def read_action_table() -> dict[str, dict]:
-    table = {}
-    for name, label, frames, fps, loop in ACTION_ROW.findall(APP_JS.read_text("utf-8")):
-        table[name] = {"label": label, "frames": int(frames), "fps": int(fps), "loop": loop == "true"}
-    return table
+    return read_json(REPO_DIR / "assets" / "animation-timing.json")
 
 
 def import_assets(force: bool = False) -> list[str]:

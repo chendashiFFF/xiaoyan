@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ExportFormat, ExportOptions, ExportResult } from '../types';
 
 interface Props {
   actionLabel: string;
+  onPreview: (options: ExportOptions) => Promise<{ original: string; preview: string; width: number; height: number }>;
   onClose: () => void;
   onExport: (options: ExportOptions) => Promise<ExportResult>;
 }
 
 const STORAGE_KEY = 'studio-export-options';
+const STYLE_VERSION = 3;
 const DEFAULTS: ExportOptions = {
   format: 'gif',
-  scale: 2,
+  scale: 1,
+  pixelStep: 1,
+  patina: 'none',
   background: 'transparent',
   matte: '#ffffff',
   alphaThreshold: 128,
@@ -22,30 +26,45 @@ const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
   { id: 'gif', label: 'GIF', hint: '到处都能播放；透明只有"全透明/不透明"两种，边缘会压到一个底色上' },
   { id: 'webp', label: 'WebP', hint: '完整半透明、体积小，浏览器和大多数聊天软件支持' },
   { id: 'apng', label: 'APNG', hint: '完整半透明的动图 PNG，浏览器支持' },
-  { id: 'sheet', label: '精灵图 + JSON', hint: '所有帧拼成一张 PNG，附带每帧时长，给游戏或桌面宠物用' },
+  { id: 'sheet', label: '精灵图 + JSON', hint: '所有帧拼成一张 PNG，附带每帧时长，给游戏或视频制作用' },
 ];
 
 function loadDefaults(): ExportOptions {
   try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') };
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    return { ...DEFAULTS, format: FORMATS.some(f => f.id === saved.format) ? saved.format : DEFAULTS.format };
   } catch {
     return DEFAULTS;
   }
 }
 
-export function ExportDialog({ actionLabel, onClose, onExport }: Props) {
+export function ExportDialog({ actionLabel, onClose, onExport, onPreview }: Props) {
   const [options, setOptions] = useState<ExportOptions>(loadDefaults);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ExportResult[]>([]);
   const set = (patch: Partial<ExportOptions>) => setOptions((prev) => ({ ...prev, ...patch }));
-  const transparent = options.background === 'transparent';
+  const [preview, setPreview] = useState<Awaited<ReturnType<Props['onPreview']>> | null>(null);
+  const [previewError, setPreviewError] = useState('');
+  const [previewBusy, setPreviewBusy] = useState(true);
+  const previewFn = useRef(onPreview);
+  previewFn.current = onPreview;
+  useEffect(() => {
+    let cancelled = false;
+    setPreviewBusy(true); setPreviewError('');
+    const timer = window.setTimeout(() => {
+      void previewFn.current(options).then(value => { if (!cancelled) setPreview(value); })
+        .catch(err => { if (!cancelled) setPreviewError(String(err)); })
+        .finally(() => { if (!cancelled) setPreviewBusy(false); });
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [options]);
 
   const run = async () => {
     setBusy(true);
     setError(null);
     try {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(options)); } catch { /* storage may be unavailable */ }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...options, styleVersion: STYLE_VERSION })); } catch { /* storage may be unavailable */ }
       const result = await onExport(options);
       setResults((prev) => [result, ...prev]);
     } catch (err) {
@@ -73,42 +92,17 @@ export function ExportDialog({ actionLabel, onClose, onExport }: Props) {
               </div>
               <p className="muted">{FORMATS.find((f) => f.id === options.format)?.hint}</p>
             </div>
-            <label className="field">
-              <span>放大倍数</span>
-              <select value={options.scale} onChange={(e) => set({ scale: Number(e.target.value) })}>
-                {[1, 2, 3, 4, 6, 8].map((s) => <option key={s} value={s}>{s}×</option>)}
-              </select>
-            </label>
-            <div className="field">
-              <span>背景</span>
-              <div className="row">
-                <label className="check"><input type="radio" checked={transparent} onChange={() => set({ background: 'transparent' })} /><span>透明</span></label>
-                <label className="check"><input type="radio" checked={!transparent} onChange={() => set({ background: transparent ? '#ffffff' : options.background })} /><span>纯色</span></label>
-                {!transparent && <input type="color" value={options.background} onChange={(e) => set({ background: e.target.value })} />}
-              </div>
-            </div>
-            {options.format === 'gif' && transparent && (
-              <div className="field">
-                <span>GIF 边缘底色</span>
-                <div className="row">
-                  <input type="color" value={options.matte} onChange={(e) => set({ matte: e.target.value })} />
-                  <span className="muted">选成 GIF 将来要放上去的背景色，边缘就不会有白边或黑边</span>
-                </div>
-                <label className="row">
-                  <span>不透明阈值</span>
-                  <input type="range" min={32} max={224} step={8} value={options.alphaThreshold} onChange={(e) => set({ alphaThreshold: Number(e.target.value) })} />
-                  <span className="muted">{options.alphaThreshold}</span>
-                </label>
-              </div>
-            )}
-            <label className="check">
-              <input type="checkbox" checked={options.trim} onChange={(e) => set({ trim: e.target.checked })} />
-              <span>裁掉四周空白（保留 {options.padding}px 边距）</span>
-            </label>
+            <p className="muted">自动裁掉四周透明空白，保留 8px 边距。所有帧统一裁剪，不改变人物大小、颜色和动作时长。</p>
             {error && <p className="error">{error}</p>}
             <button className="primary" disabled={busy} onClick={run}>{busy ? '导出中…' : '导出'}</button>
           </div>
           <div className="export-results">
+            <p className="muted">首帧效果预览 · {previewBusy ? '更新中…' : preview ? `${preview.width}×${preview.height}px` : ''}</p>
+            {previewError && <p className="error">{previewError}</p>}
+            {preview && !previewBusy && !previewError && <div className="export-compare">
+              <figure><figcaption>导出效果</figcaption><div className="checker export-preview"><img src={preview.preview} alt="导出效果" /></div></figure>
+            </div>}
+
             {!results.length && <p className="muted">导出的文件会保存在项目的 exports 目录里，也会显示在这里。</p>}
             {results.map((r) => (
               <figure key={r.url}>

@@ -1,9 +1,11 @@
+import { ImageGenerationTest } from '../../shared/ImageGenerationTest';
 import { useState } from 'react';
 import { api } from '../api';
 import type { GeneratorSettings, Provider } from '../types';
 
 interface Props {
   settings: GeneratorSettings;
+  projectId?: string;
   onClose: () => void;
   onSaved: (settings: GeneratorSettings) => void;
 }
@@ -16,7 +18,7 @@ const QUALITIES: { value: string; label: string }[] = [
   { value: 'max', label: '最高（max）' },
 ];
 
-export function GeneratorSettingsDialog({ settings, onClose, onSaved }: Props) {
+export function GeneratorSettingsDialog({ settings, projectId, onClose, onSaved }: Props) {
   const [provider, setProvider] = useState<Provider>(settings.provider);
   const [base, setBase] = useState(settings.api.base);
   const [key, setKey] = useState('');
@@ -38,7 +40,7 @@ export function GeneratorSettingsDialog({ settings, onClose, onSaved }: Props) {
       const result = await api.testSettings(apiPatch());
       setModels(result.models);
       setTest(result.ok
-        ? { ok: true, text: result.hasModel ? `连接成功，模型 ${model} 可用` : `连接成功，但列表里没有 ${model}。可用的图片模型：${result.models.filter((m) => m.includes('image')).join('、') || '（没有）'}` }
+        ? { ok: true, text: result.hasModel ? `模型列表可访问，包含 ${model}；出图权限请用下方实际测试确认` : `连接成功，但列表里没有 ${model}。可用的图片模型：${result.models.filter((m) => m.includes('image')).join('、') || '（没有）'}` }
         : { ok: false, text: result.error ?? '连接失败' });
     } catch (err) {
       setTest({ ok: false, text: err instanceof Error ? err.message : String(err) });
@@ -131,6 +133,7 @@ export function GeneratorSettingsDialog({ settings, onClose, onSaved }: Props) {
               <p className="muted hint">API Key 只保存在本机的 studio/settings.local.json（不会提交到 git），页面上不会再显示完整的 Key。</p>
             </>
           )}
+          <ImageGenerationTest projectId={projectId} save={() => api.updateSettings({ provider, api: apiPatch() })} />
           {error && <p className="error">{error}</p>}
           <div className="row end">
             <button onClick={onClose}>取消</button>

@@ -1,3 +1,4 @@
+import { JobReferences } from './ReferenceSelection';
 import { useEffect, useState } from 'react';
 import type { Frame, FrameJobKind, Job, Rect } from '../types';
 
@@ -7,6 +8,7 @@ export interface PreviewRef {
 }
 
 interface Props {
+  projectId: string;
   frame: Frame;
   /** e.g. "API · gpt-image-2.5-flare" */
   generatorLabel: string;
@@ -148,7 +150,7 @@ export function AiPanel(props: Props) {
           const previewing = preview?.jobId === job.id;
           return (
             <div key={job.id} className={`job ${job.status}`}>
-              <div className="job-head">
+              <JobReferences pid={props.projectId} job={job} /><div className="job-head">
                 <span>{KIND[job.kind]} · {STATUS[job.status]}{active(job) ? ` ${clock(elapsed)}` : ''}</span>
                 {job.kind !== 'inbetween' && <span className="muted">基于 v{job.sourceVersion}</span>}
               </div>

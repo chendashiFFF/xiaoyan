@@ -126,6 +126,30 @@ def update_project(pid: str, body: dict) -> dict:
             if value is not None and value not in project.get("references", []):
                 raise StoreError(f"{value} 不是这个人物的参考图")
             project[key] = value
+    if "referenceSettings" in body:
+        entries = body["referenceSettings"]
+        if not isinstance(entries, dict) or any(r not in project.get("references", []) for r in entries):
+            raise StoreError("参考图不属于这个人物")
+        clean = {}
+        for rel, meta in entries.items():
+            if not isinstance(meta, dict) or meta.get("angle", "unknown") not in ("unknown", "front", "quarter", "side", "back", "detail"):
+                raise StoreError("参考图角度无效")
+            clean[rel] = {"angle": meta.get("angle", "unknown"), "enabled": bool(meta.get("enabled", True))}
+        project["referenceSettings"] = clean
+    if "propMode" in body:
+        if body["propMode"] not in ("keep", "character"):
+            raise StoreError("道具选项无效")
+        project["propMode"] = body["propMode"]
+    if "removeReference" in body:
+        rel = body["removeReference"]
+        if rel not in project.get("references", []):
+            raise StoreError("参考图不存在")
+        project["references"].remove(rel)
+        project.get("referenceSettings", {}).pop(rel, None)
+        for key in REFERENCE_ROLES.values():
+            if project.get(key) == rel:
+                project[key] = None
+        # Keep the source file so old jobs and generated assets remain recoverable.
     write_json(project_file, project)
     return get_project(pid)
 
@@ -157,6 +181,10 @@ def add_reference(pid: str, data: bytes, role: str | None, filename: str) -> dic
     while (folder / name).exists():
         serial += 1
         name = f"{stem}-{serial}.png"
+    original_folder = folder / "originals"
+    original_folder.mkdir(exist_ok=True)
+    original_suffix = {"JPEG": ".jpg", "WEBP": ".webp"}.get(Image.open(io.BytesIO(data)).format, ".png")
+    (original_folder / (Path(name).stem + original_suffix)).write_bytes(data)
     image.save(folder / name)
     rel = f"references/{name}"
     project_file = project_dir(pid) / "project.json"

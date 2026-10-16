@@ -1,6 +1,8 @@
 """Render an action's current frame sequence to GIF / WebP / APNG / sprite sheet."""
 from __future__ import annotations
 
+import base64
+import io
 import json
 import time
 from dataclasses import dataclass
@@ -18,7 +20,9 @@ TRANSPARENT_INDEX = 255
 @dataclass
 class ExportOptions:
     format: str = "gif"
-    scale: int = 2
+    scale: float = 1
+    pixel_step: float = 1
+    patina: str = "none"
     background: str = "transparent"  # "transparent" or "#rrggbb"
     matte: str = "#ffffff"  # GIF only: colour that semi-transparent edges are flattened onto
     alpha_threshold: int = 128  # GIF only: alpha at or above this becomes opaque
@@ -27,24 +31,10 @@ class ExportOptions:
 
     @classmethod
     def parse(cls, raw: dict) -> "ExportOptions":
-        opts = cls(
-            format=str(raw.get("format", "gif")),
-            scale=int(raw.get("scale", 2)),
-            background=str(raw.get("background", "transparent")),
-            matte=str(raw.get("matte", "#ffffff")),
-            alpha_threshold=int(raw.get("alphaThreshold", 128)),
-            trim=bool(raw.get("trim", True)),
-            padding=int(raw.get("padding", 8)),
-        )
+        # Ignore legacy processing settings, including cached requests from older clients.
+        opts = cls(format=str(raw.get("format", "gif")))
         if opts.format not in FORMATS:
             raise StoreError(f"unknown format {opts.format!r}")
-        if not 1 <= opts.scale <= 8:
-            raise StoreError("scale must be between 1 and 8")
-        if opts.background != "transparent":
-            parse_hex(opts.background)
-        parse_hex(opts.matte)
-        opts.alpha_threshold = max(1, min(255, opts.alpha_threshold))
-        opts.padding = max(0, min(128, opts.padding))
         return opts
 
 
@@ -59,7 +49,7 @@ def parse_hex(value: str) -> tuple[int, int, int]:
 
 
 def render_sequence(pid: str, aid: str, opts: ExportOptions) -> tuple[list[Image.Image], list[int], dict]:
-    """Composite every frame with its offset, apply pingpong, trim, and scale."""
+    """Render the edited frame positions and playback order without export effects."""
     action = get_action(pid, aid)
     if not action["frames"]:
         raise StoreError("这个动作还没有帧")
@@ -81,29 +71,14 @@ def render_sequence(pid: str, aid: str, opts: ExportOptions) -> tuple[list[Image
         durations += durations[-2:0:-1]
 
     box = (0, 0, cell, cell)
-    if opts.trim:
-        union = None
-        for image in frames:
-            bbox = image.getbbox()
-            if bbox:
-                union = bbox if union is None else (
-                    min(union[0], bbox[0]), min(union[1], bbox[1]), max(union[2], bbox[2]), max(union[3], bbox[3]))
-        if union:
-            pad = opts.padding
-            box = (max(0, union[0] - pad), max(0, union[1] - pad), min(cell, union[2] + pad), min(cell, union[3] + pad))
-    frames = [image.crop(box) for image in frames]
-    if opts.scale != 1:
-        size = (frames[0].width * opts.scale, frames[0].height * opts.scale)
-        frames = [image.resize(size, Image.NEAREST) for image in frames]
-
-    if opts.background != "transparent":
-        color = parse_hex(opts.background)
-        flattened = []
-        for image in frames:
-            base = Image.new("RGBA", image.size, (*color, 255))
-            base.alpha_composite(image)
-            flattened.append(base)
-        frames = flattened
+    # One shared alpha bounding box preserves motion and never clips a later pose.
+    bounds = [b for image in frames if (b := image.getchannel("A").getbbox())]
+    if opts.trim and bounds:
+        box = (max(0, min(b[0] for b in bounds) - opts.padding),
+               max(0, min(b[1] for b in bounds) - opts.padding),
+               min(cell, max(b[2] for b in bounds) + opts.padding),
+               min(cell, max(b[3] for b in bounds) + opts.padding))
+        frames = [image.crop(box) for image in frames]
 
     meta = {
         "action": aid,
@@ -111,6 +86,8 @@ def render_sequence(pid: str, aid: str, opts: ExportOptions) -> tuple[list[Image
         "cellSize": cell,
         "crop": list(box),
         "scale": opts.scale,
+        "pixelStep": opts.pixel_step,
+        "patina": opts.patina,
         "playback": action.get("playback", "loop"),
     }
     return frames, durations, meta
@@ -146,6 +123,23 @@ def to_gif_frames(frames: list[Image.Image], opts: ExportOptions) -> list[Image.
         frame.putpalette(palette)
         result.append(frame)
     return result
+
+
+def preview_action(pid: str, aid: str, raw_options: dict) -> dict:
+    opts = ExportOptions.parse(raw_options)
+    frames, _, _ = render_sequence(pid, aid, opts)
+    original = frames
+    image = frames[0]
+    if opts.format == "gif":
+        indexed = to_gif_frames(frames, opts)[0]
+        if opts.background == "transparent":
+            indexed.info["transparency"] = TRANSPARENT_INDEX
+        image = indexed.convert("RGBA")
+    def url(frame):
+        buffer = io.BytesIO()
+        frame.save(buffer, format="PNG")
+        return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+    return {"original": url(original[0]), "preview": url(image), "width": image.width, "height": image.height}
 
 
 def export_action(pid: str, aid: str, raw_options: dict) -> dict:

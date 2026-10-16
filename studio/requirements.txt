@@ -1,5 +1,9 @@
-fastapi
+fastapi>=0.115
+pydantic>=2
 uvicorn
-pillow
+pillow>=10
 numpy
 requests
+fonttools>=4.50
+
+httpx

@@ -1,0 +1,92 @@
+{
+  "idle": {
+    "label": "待机",
+    "frames": 4,
+    "fps": 4,
+    "loop": true
+  },
+  "wave": {
+    "label": "挥手",
+    "frames": 6,
+    "fps": 8,
+    "loop": false
+  },
+  "cast": {
+    "label": "施法",
+    "frames": 6,
+    "fps": 8,
+    "loop": false
+  },
+  "attack": {
+    "label": "攻击",
+    "frames": 6,
+    "fps": 10,
+    "loop": false
+  },
+  "hurt": {
+    "label": "受击",
+    "frames": 4,
+    "fps": 8,
+    "loop": false
+  },
+  "run": {
+    "label": "跑动",
+    "frames": 8,
+    "fps": 12,
+    "loop": false
+  },
+  "jump": {
+    "label": "跳跃",
+    "frames": 6,
+    "fps": 9,
+    "loop": false
+  },
+  "bow": {
+    "label": "鞠躬",
+    "frames": 4,
+    "fps": 7,
+    "loop": false
+  },
+  "dance": {
+    "label": "舞蹈",
+    "frames": 8,
+    "fps": 10,
+    "loop": false
+  },
+  "sit": {
+    "label": "坐下",
+    "frames": 4,
+    "fps": 6,
+    "loop": false
+  },
+  "sleep": {
+    "label": "困倦",
+    "frames": 4,
+    "fps": 3,
+    "loop": false
+  },
+  "turn": {
+    "label": "转身",
+    "frames": 6,
+    "fps": 7,
+    "loop": false
+  },
+  "clap": {
+    "label": "鼓掌",
+    "frames": 6,
+    "fps": 8,
+    "loop": false
+  },
+  "surprise": {
+    "label": "惊讶",
+    "frames": 4,
+    "fps": 8,
+    "loop": false
+  },
+  "sad": {
+    "label": "难过",
+    "frames": 4,
+    "fps": 5,
+    "loop": false
+  }
+}

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ProjectSummary } from '../types';
 
 export interface NewCharacterRequest {
+  direct?: boolean;
   id: string;
   name: string;
   identity: File | null;
@@ -101,7 +102,7 @@ export function NewCharacterDialog({ existingIds, projects, onClose, onCreate }:
   const [id, setId] = useState('');
   const [identity, setIdentity] = useState<File | null>(null);
   const [design, setDesign] = useState<File | null>(null);
-  const [mode, setMode] = useState<'upload' | 'ai'>('upload');
+  const [mode, setMode] = useState<'upload' | 'ai' | 'direct'>('direct');
   const [sources, setSources] = useState<File[]>([]);
   const [notes, setNotes] = useState('');
   const [style, setStyle] = useState('pixel');
@@ -117,7 +118,7 @@ export function NewCharacterDialog({ existingIds, projects, onClose, onCreate }:
     setBusy(true);
     setError(null);
     try {
-      await onCreate(mode === 'upload'
+      await onCreate(mode === 'direct' ? { id, name: name.trim() || id, identity: null, design: null, sources, notes: '', style: 'source', direct: true } : mode === 'upload'
         ? { id, name: name.trim() || id, identity, design, sources: [], notes: '', style: 'pixel' }
         : { id, name: name.trim() || id, identity: null, design: null, sources, notes, style });
     } catch (err) {
@@ -155,10 +156,11 @@ export function NewCharacterDialog({ existingIds, projects, onClose, onCreate }:
             </label>
           </div>
           <div className="segmented">
+            <button className={mode === 'direct' ? 'active' : ''} onClick={() => setMode('direct')}>直接上传多张参考图</button>
             <button className={mode === 'upload' ? 'active' : ''} onClick={() => setMode('upload')}>我有规范的正面全身图</button>
             <button className={mode === 'ai' ? 'active' : ''} onClick={() => setMode('ai')}>只有几张参考图，让 AI 画规范图</button>
           </div>
-          {mode === 'upload' ? (
+          {mode === 'direct' ? (<div className="field"><span>人物参考图（1–6 张）</span><ImageList files={sources} onChange={setSources} /><p className="muted">上传后直接用于动作、重绘和补帧，无需生成规范图。创建后可标记角度和调整默认使用的图片。</p></div>) : mode === 'upload' ? (
             <div className="grid-2">
               {picker('主参考图（必填）', '正面、站直、全身，透明背景或纯品红底', identityUrl, setIdentity)}
               {picker('设定图（可选）', '三视图、细节特写都可以', designUrl, setDesign)}

@@ -73,8 +73,9 @@ def square(image: Image.Image) -> Image.Image:
 
 
 def resize_rgba(image: Image.Image, size: tuple[int, int]) -> Image.Image:
-    # Resize in premultiplied space so transparent pixels do not darken the edges.
-    return image.convert("RGBa").resize(size, Image.LANCZOS).convert("RGBA")
+    # Sprite frames and reference templates must not acquire blended edge colours.
+    # Nearest preserves source pixel clusters; it cannot turn painted art into pixel art.
+    return image.convert("RGBA").resize(size, Image.Resampling.NEAREST)
 
 
 def solid_mask(image: Image.Image) -> np.ndarray:

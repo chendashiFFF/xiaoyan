@@ -1,7 +1,9 @@
+import { JobReferences } from './ReferenceSelection';
 import { useEffect, useState } from 'react';
 import type { Action, Facing, Job, KeyposeRequest } from '../types';
 
 interface Props {
+  projectId: string;
   action: Action;
   jobs: Job[];
   fileUrl: (job: Job, name: string) => string;
@@ -23,7 +25,7 @@ function PoseLoop({ urls, duration }: { urls: string[]; duration: number }) {
   return <img className="pose-loop" src={urls[index % urls.length]} alt="" />;
 }
 
-export function KeyposePanel({ action, jobs, fileUrl, onAccept, onCancel, onGenerate }: Props) {
+export function KeyposePanel({ projectId, action, jobs, fileUrl, onAccept, onCancel, onGenerate }: Props) {
   const latest = jobs[0];
   const [instruction, setInstruction] = useState(latest?.instruction ?? '');
   const [keyframes, setKeyframes] = useState(latest?.keyframes ?? 4);
@@ -66,7 +68,7 @@ export function KeyposePanel({ action, jobs, fileUrl, onAccept, onCancel, onGene
               <span>{job.keyframes} 个关键姿势 · {STATUS[job.status]}{active(job) ? ` ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}` : ''}</span>
               {active(job) && <button onClick={() => onCancel(job)}>取消</button>}
             </div>
-            <p className="job-text">{job.instruction}</p>
+            <JobReferences pid={projectId} job={job} /><p className="job-text">{job.instruction}</p>
             {job.candidates.map((c) => (
               <div key={c.index} className="keypose-candidate">
                 {c.status === 'done' && c.frames ? (
